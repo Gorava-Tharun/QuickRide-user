@@ -191,8 +191,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             child: FilterChip(
               label: Text(
                 f == 'ALL' ? 'All Payments' : f,
-                style: TextStyle(
-                  color: isSelected ? Colors.black : AppColors.textPrimaryLight,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),

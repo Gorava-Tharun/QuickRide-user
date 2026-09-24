@@ -24,12 +24,12 @@ abstract final class AppColors {
   static const Color surfaceElevatedLight = Color(0xFFF1F5F9);
   static const Color borderLight = Color(0xFFE2E8F0);
 
-  // Typography Colors
-  static const Color textPrimaryLight = Color(0xFF0F172A);
-  static const Color textSecondaryLight = Color(0xFF64748B);
-  static const Color textPrimaryDark = Color(0xFFF8FAFC);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
-  static const Color textMutedDark = Color(0xFF64748B);
+  // Typography Colors (All White for High-Contrast Clean Visibility)
+  static const Color textPrimaryLight = Color(0xFFFFFFFF);
+  static const Color textSecondaryLight = Color(0xFFFFFFFF);
+  static const Color textPrimaryDark = Color(0xFFFFFFFF);
+  static const Color textSecondaryDark = Color(0xFFFFFFFF);
+  static const Color textMutedDark = Color(0xFFFFFFFF);
 
   // Ambient & Glow Effects
   static const Color glowGold = Color(0x55FFC700);

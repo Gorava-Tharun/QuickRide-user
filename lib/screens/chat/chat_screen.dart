@@ -376,7 +376,7 @@ class _ChatScreenState extends State<ChatScreen> {
               msg.message,
               style: TextStyle(
                 fontSize: 14,
-                color: isMe ? const Color(0xFF0F172A) : AppColors.textPrimaryDark,
+                color: Colors.white,
                 fontWeight: isMe ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -386,11 +386,9 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   timeStr,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
-                    color: isMe
-                        ? const Color(0xFF334155)
-                        : AppColors.textSecondaryDark,
+                    color: Colors.white,
                   ),
                 ),
                 if (isMe) ...[
@@ -398,7 +396,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Icon(
                     msg.read ? Icons.done_all_rounded : Icons.check_rounded,
                     size: 13,
-                    color: msg.read ? const Color(0xFF0F172A) : const Color(0xFF475569),
+                    color: Colors.white,
                   ),
                 ],
               ],

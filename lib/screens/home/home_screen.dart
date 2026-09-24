@@ -706,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           unread > 99 ? '99+' : unread.toString(),
                           style: const TextStyle(
-                            color: Colors.black,
+                            color: Colors.white,
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
                             height: 1.0,

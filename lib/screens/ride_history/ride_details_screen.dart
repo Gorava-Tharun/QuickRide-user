@@ -647,7 +647,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
                   ),

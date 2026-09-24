@@ -1,4 +1,4 @@
-﻿import "package:flutter/material.dart";
+import "package:flutter/material.dart";
 import "../../../core/constants/app_colors.dart";
 import "../../../core/constants/app_dimensions.dart";
 import "../../../models/offer_model.dart";
@@ -237,7 +237,7 @@ class OfferCard extends StatelessWidget {
                             ),
                             child: const Icon(
                               Icons.check,
-                              color: Colors.black,
+                              color: Colors.white,
                               size: 12,
                             ),
                           ),
@@ -311,9 +311,7 @@ class OfferCard extends StatelessWidget {
                           backgroundColor: isViewOfferOnly
                               ? AppColors.surfaceElevatedDark
                               : AppColors.primary,
-                          foregroundColor: isViewOfferOnly
-                              ? AppColors.textPrimaryLight
-                              : Colors.black,
+                          foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,

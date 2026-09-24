@@ -26,9 +26,9 @@ class PrimaryButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: Colors.black,
+          foregroundColor: Colors.white,
           disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-          disabledForegroundColor: Colors.black45,
+          disabledForegroundColor: Colors.white70,
           elevation: 4,
           shadowColor: AppColors.primary.withValues(alpha: 0.4),
           shape: RoundedRectangleBorder(
@@ -41,7 +41,7 @@ class PrimaryButton extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
             : Row(
@@ -49,7 +49,7 @@ class PrimaryButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (icon != null) ...[
-                    Icon(icon, size: 20, color: Colors.black),
+                    Icon(icon, size: 20, color: Colors.white),
                     const SizedBox(width: AppDimensions.space8),
                   ],
                   Flexible(
@@ -60,7 +60,7 @@ class PrimaryButton extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.4,
-                        color: Colors.black,
+                        color: Colors.white,
                       ),
                     ),
                   ),

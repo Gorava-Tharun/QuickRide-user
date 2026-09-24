@@ -306,7 +306,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: isSelected ? Colors.black : AppColors.textSecondaryLight,
+              color: Colors.white,
             ),
           ),
         ),

@@ -309,7 +309,7 @@ class _OffersScreenState extends State<OffersScreen> {
             ),
             child: const Icon(
               Icons.check,
-              color: Colors.black,
+              color: Colors.white,
               size: 14,
             ),
           ),
@@ -456,7 +456,7 @@ class _OffersScreenState extends State<OffersScreen> {
                   onPressed: _isValidatingCoupon ? null : _handleApplyCoupon,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     shape: RoundedRectangleBorder(
@@ -469,7 +469,7 @@ class _OffersScreenState extends State<OffersScreen> {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.black,
+                            color: Colors.white,
                           ),
                         )
                       : const Text(

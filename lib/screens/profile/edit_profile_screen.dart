@@ -270,7 +270,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             label: const Text('Upload Photo', style: TextStyle(fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
             ),
           ),
         ],

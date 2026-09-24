@@ -84,7 +84,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
+                foregroundColor: Colors.white,
               ),
               child: const Text('Log In Again', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
@@ -227,7 +227,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   onPressed: _isLoading ? null : _handleChangePassword,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
+                    foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
@@ -237,7 +237,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
                       : const Text(
                           'Update Password',

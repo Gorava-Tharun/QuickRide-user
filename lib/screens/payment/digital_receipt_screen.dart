@@ -204,7 +204,7 @@ Need help? Visit Help & Support in the app.
             label: const Text('Copy Slip'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
             ),
           ),
         ],
@@ -502,7 +502,7 @@ Need help? Visit Help & Support in the app.
                       label: const Text('Print Slip', style: TextStyle(fontWeight: FontWeight.w800)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
