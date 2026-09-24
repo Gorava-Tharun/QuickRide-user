@@ -3,7 +3,6 @@
   "name": "quickride-user",
   "cleanUrls": true,
   "outputDirectory": "build/web",
-  "buildCommand": "bash vercel-build.sh",
   "framework": null,
   "rewrites": [
     {
