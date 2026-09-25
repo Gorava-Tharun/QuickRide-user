@@ -194,6 +194,52 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
           ),
           const Divider(color: AppColors.borderDark, height: 8),
 
+          // Quick action for pickup: Use Current Location
+          if (widget.isPickup && _searchController.text.trim().isEmpty) ...[
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.secondary),
+                ),
+                child: const Icon(
+                  Icons.my_location_rounded,
+                  size: 18,
+                  color: AppColors.secondary,
+                ),
+              ),
+              title: const Text(
+                'Use Current Location',
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: const Text(
+                'Detect GPS coordinates and current address',
+                style: TextStyle(
+                  color: AppColors.textSecondaryLight,
+                  fontSize: 12,
+                ),
+              ),
+              onTap: () {
+                Navigator.of(context).pop(
+                  const LocationPoint(
+                    latitude: 0,
+                    longitude: 0,
+                    name: AppStrings.currentLocation,
+                    address: 'Current Device Location',
+                    placeId: 'use_current_gps',
+                  ),
+                );
+              },
+            ),
+            const Divider(color: AppColors.borderDark, height: 1, indent: 52),
+          ],
+
           // Suggestions list
           Flexible(
             child: ListView.separated(

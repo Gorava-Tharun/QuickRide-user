@@ -114,6 +114,19 @@ class RouteSummaryCard extends StatelessWidget {
                                 color: AppColors.textPrimaryLight,
                               ),
                             ),
+                            if (pickup.address.isNotEmpty && pickup.address != pickup.name) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                pickup.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondaryLight,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -160,6 +173,21 @@ class RouteSummaryCard extends StatelessWidget {
                                     : AppColors.textSecondaryLight,
                               ),
                             ),
+                            if (destination != null &&
+                                destination!.address.isNotEmpty &&
+                                destination!.address != destination!.name) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                destination!.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.textSecondaryLight,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

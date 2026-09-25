@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
@@ -65,17 +66,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isLocating = false;
   bool _isLocationPermissionDenied = false;
+  bool _hasUserManuallyChangedPickup = false;
+  Position? _currentGpsPosition;
+  String? _currentGpsAddress;
   int _selectedNavIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    // Default pickup initialization (Current Location / Bengaluru default)
+    // Default pickup initialization (Initial placeholder until GPS detection completes)
     _pickupLocation = const LocationPoint(
       latitude: LocationService.defaultLatitude,
       longitude: LocationService.defaultLongitude,
       name: AppStrings.currentLocation,
-      address: 'Bengaluru, Karnataka, India',
+      address: 'Detecting current address...',
     );
     _rebuildMapMarkers();
     PushNotificationService().initialize(
@@ -84,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkActiveRideRecovery();
+      _fetchCurrentLocation(isInitial: true);
     });
   }
 
@@ -274,8 +279,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Request user GPS coordinates and update pickup location.
-  Future<void> _fetchCurrentLocation() async {
-    setState(() => _isLocating = true);
+  Future<void> _fetchCurrentLocation({bool isInitial = false, bool force = false}) async {
+    if (_hasUserManuallyChangedPickup && !force) {
+      return;
+    }
+    if (force) {
+      _hasUserManuallyChangedPickup = false;
+    }
+
+    if (!isInitial) {
+      setState(() => _isLocating = true);
+    }
 
     final result = await LocationService.getCurrentLocation();
 
@@ -283,39 +297,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (result.isPermissionGranted && result.position != null) {
       final pos = result.position!;
-      final newPickup = LocationPoint(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        name: AppStrings.currentLocation,
-        address: LocationService.formatCoordinatesAddress(
-          pos.latitude,
-          pos.longitude,
-          defaultName: 'Current Location',
-        ),
-      );
+      _currentGpsPosition = pos;
 
-      setState(() {
-        _isLocating = false;
-        _isLocationPermissionDenied = false;
-        _pickupLocation = newPickup;
-      });
+      // Reverse geocode real street address
+      final address = await LocationService.reverseGeocode(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      _currentGpsAddress = address;
 
-      _updateRouteAndCamera();
-      _showNotice('Current location detected successfully.');
+      if (!_hasUserManuallyChangedPickup || force) {
+        final newPickup = LocationPoint(
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          name: AppStrings.currentLocation,
+          address: address,
+        );
+
+        setState(() {
+          _isLocating = false;
+          _isLocationPermissionDenied = false;
+          _pickupLocation = newPickup;
+        });
+
+        _updateRouteAndCamera();
+        if (!isInitial) {
+          _showNotice('Current location detected successfully.');
+        }
+      } else {
+        setState(() {
+          _isLocating = false;
+          _isLocationPermissionDenied = false;
+        });
+        _rebuildMapMarkers();
+      }
     } else {
       setState(() {
         _isLocating = false;
         _isLocationPermissionDenied = true;
+        if (_pickupLocation.address == 'Detecting current address...') {
+          _pickupLocation = _pickupLocation.copyWith(
+            address: 'Location permission required - tap to select',
+          );
+        }
       });
-      _showNotice(
-        result.errorMessage ?? AppStrings.locationPermissionDeniedNotice,
-        isError: true,
-      );
+      if (!isInitial) {
+        _showNotice(
+          result.errorMessage ?? AppStrings.locationPermissionDeniedNotice,
+          isError: true,
+        );
+      }
     }
   }
 
   /// Handles user tapping on map to select pickup or destination.
-  void _onMapTapped(LatLng point) {
+  Future<void> _onMapTapped(LatLng point) async {
+    final address = await LocationService.reverseGeocode(point.latitude, point.longitude);
+    if (!mounted) return;
+
     if (_destinationLocation == null) {
       // If destination not yet set, set destination
       _setDestination(
@@ -323,18 +360,19 @@ class _HomeScreenState extends State<HomeScreen> {
           latitude: point.latitude,
           longitude: point.longitude,
           name: 'Selected Destination',
-          address: LocationService.formatCoordinatesAddress(point.latitude, point.longitude),
+          address: address,
         ),
       );
       _showNotice('Destination marked on map.');
     } else {
       // Destination exists, update pickup location to tapped point
+      _hasUserManuallyChangedPickup = true;
       setState(() {
         _pickupLocation = LocationPoint(
           latitude: point.latitude,
           longitude: point.longitude,
           name: 'Custom Pickup',
-          address: LocationService.formatCoordinatesAddress(point.latitude, point.longitude),
+          address: address,
         );
       });
       _updateRouteAndCamera();
@@ -352,10 +390,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (selected != null && mounted) {
-      setState(() {
-        _pickupLocation = selected;
-      });
-      _updateRouteAndCamera();
+      if (selected.placeId == 'use_current_gps') {
+        _hasUserManuallyChangedPickup = false;
+        _fetchCurrentLocation(force: true);
+      } else {
+        setState(() {
+          _hasUserManuallyChangedPickup = true;
+          _pickupLocation = selected;
+        });
+        _updateRouteAndCamera();
+      }
     }
   }
 
@@ -388,6 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() {
+      _hasUserManuallyChangedPickup = true;
       final temp = _pickupLocation;
       _pickupLocation = _destinationLocation!;
       _destinationLocation = temp;
@@ -436,20 +481,51 @@ class _HomeScreenState extends State<HomeScreen> {
   void _rebuildMapMarkers() {
     final markers = <Marker>{};
 
-    // 1. Pickup Marker (Yellow/Green)
+    // 1. Current GPS Location Marker (if detected)
+    if (_currentGpsPosition != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('current_location_marker'),
+          position: LatLng(_currentGpsPosition!.latitude, _currentGpsPosition!.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+          infoWindow: InfoWindow(
+            title: 'Current GPS Location',
+            snippet: _currentGpsAddress ?? 'Your actual device location',
+          ),
+        ),
+      );
+    }
+
+    // 2. Pickup Marker (Yellow/Green, Draggable)
     markers.add(
       Marker(
         markerId: const MarkerId('pickup_marker'),
         position: _pickupLocation.toLatLng(),
+        draggable: true,
+        onDragEnd: (newPosition) async {
+          _hasUserManuallyChangedPickup = true;
+          final address = await LocationService.reverseGeocode(newPosition.latitude, newPosition.longitude);
+          if (!mounted) return;
+          setState(() {
+            _pickupLocation = LocationPoint(
+              latitude: newPosition.latitude,
+              longitude: newPosition.longitude,
+              name: 'Selected Pickup',
+              address: address,
+            );
+          });
+          _updateRouteAndCamera();
+          _showNotice('Pickup location moved.');
+        },
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
         infoWindow: InfoWindow(
           title: AppStrings.pickupMarkerTitle,
-          snippet: _pickupLocation.name,
+          snippet: _pickupLocation.address.isNotEmpty ? _pickupLocation.address : _pickupLocation.name,
         ),
       ),
     );
 
-    // 2. Destination Marker (Red)
+    // 3. Destination Marker (Red)
     if (_destinationLocation != null) {
       markers.add(
         Marker(
@@ -802,7 +878,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 heroTag: 'locate_me_fab',
                 backgroundColor: AppColors.surfaceDark,
                 foregroundColor: AppColors.primary,
-                onPressed: _fetchCurrentLocation,
+                onPressed: () => _fetchCurrentLocation(force: true),
                 tooltip: 'My location',
                 child: _isLocating
                     ? const SizedBox(
