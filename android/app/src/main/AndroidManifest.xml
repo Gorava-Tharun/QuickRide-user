@@ -8,7 +8,8 @@
     <application
         android:label="QuickRide"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
 
         <!-- Google Maps Android API Key Configuration -->
         <!-- Populated securely from MAPS_API_KEY in android/local.properties or environment variable -->
