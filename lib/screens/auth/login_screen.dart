@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_colors.dart';
@@ -151,7 +152,18 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     } catch (e) {
-      debugPrint('[QuickRide Login] Auth note: $e');
+      debugPrint('[QuickRide Login] Auth error: $e');
+      if (Firebase.apps.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: ${e.toString().replaceAll("Exception: ", "")}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
       SessionManager().login(
         identifier: input,
       );

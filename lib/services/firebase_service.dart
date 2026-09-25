@@ -18,7 +18,7 @@ class QuickRideFirebaseService {
   final List<FirestoreComplaintModel> _localComplaints = [];
   final Map<String, List<FirestoreComplaintReplyModel>> _localReplies = {};
 
-  bool get isFirebaseAvailable => _isFirebaseAvailable;
+  bool get isFirebaseAvailable => _isFirebaseAvailable || Firebase.apps.isNotEmpty;
   String get statusMessage => _statusMessage;
 
   /// Safe initialization that catches missing configuration without crashing.
@@ -46,27 +46,43 @@ class QuickRideFirebaseService {
 
   /// Sync User profile to Firestore with fallback
   Future<bool> syncUserProfile(FirestoreUserModel user) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable && Firebase.apps.isEmpty) {
       debugPrint('[QuickRide User] Offline mode: User profile saved locally.');
-      return false;
+      return true;
     }
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.userId)
-          .set(user.toMap(), SetOptions(merge: true));
+      final docRef = FirebaseFirestore.instance.collection('users').doc(user.userId);
+      final docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        await docRef.set(user.toMap());
+      } else {
+        // Document exists: only update permitted editable fields to satisfy security rules
+        final updateData = <String, dynamic>{
+          'name': user.name,
+          'phone': user.phone,
+          'email': user.email,
+        };
+        if (user.profileImage != null) {
+          updateData['profileImage'] = user.profileImage;
+        }
+        if (user.fcmToken != null) {
+          updateData['fcmToken'] = user.fcmToken;
+        }
+        await docRef.update(updateData);
+      }
       debugPrint('[QuickRide User] Successfully synced profile to Firestore: ${user.userId}');
       return true;
     } catch (e) {
-      debugPrint('[QuickRide User] Firestore sync error (using local fallback): $e');
+      debugPrint('[QuickRide User] Firestore sync error: $e');
       return false;
     }
   }
 
   /// Fetch User profile from Firestore
   Future<FirestoreUserModel?> fetchUserProfile(String userId) async {
-    if (!_isFirebaseAvailable) return null;
+    if (!isFirebaseAvailable && Firebase.apps.isEmpty) return null;
+    if (userId.isEmpty) return null;
 
     try {
       final doc = await FirebaseFirestore.instance

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
@@ -149,7 +150,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           createdAt: DateTime.now(),
         );
 
-        await QuickRideFirebaseService().syncUserProfile(firestoreUser);
+        final synced = await QuickRideFirebaseService().syncUserProfile(firestoreUser);
+        if (!synced && Firebase.apps.isNotEmpty) {
+          throw Exception('Failed to save user profile to Cloud Firestore. Please check your connection.');
+        }
 
         SessionManager().updateProfile(UserProfile(
           userId: user.uid,
@@ -177,7 +181,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     } catch (e) {
-      debugPrint('[QuickRide SignUp] Auth note: $e');
+      debugPrint('[QuickRide SignUp] Auth error: $e');
+      if (Firebase.apps.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: ${e.toString().replaceAll("Exception: ", "")}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      // Offline fallback for unit/widget tests without Firebase backend
       SessionManager().login(
         identifier: _emailController.text.trim(),
         fullName: _nameController.text.trim(),
