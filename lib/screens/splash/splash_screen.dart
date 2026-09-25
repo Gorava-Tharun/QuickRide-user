@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
 import '../../routes/app_routes.dart';
+import '../../services/session_manager.dart';
 import '../../widgets/quickride_logo.dart';
 import '../../widgets/ride_background_visual.dart';
 
@@ -99,10 +101,23 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0.80, 1.0, curve: Curves.easeIn),
     );
 
-    // Navigate to Login Screen upon completion
-    _controller.addStatusListener((status) {
+    // Navigate to Home if already logged in, otherwise Login Screen upon completion
+    _controller.addStatusListener((status) async {
       if (status == AnimationStatus.completed && mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+        try {
+          final fbUser = FirebaseAuth.instance.currentUser;
+          if (fbUser != null) {
+            await SessionManager().syncWithFirebaseCurrentUser();
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+              return;
+            }
+          }
+        } catch (_) {}
+
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+        }
       }
     });
 

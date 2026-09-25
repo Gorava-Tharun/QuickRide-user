@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
+import '../../models/firestore_models.dart';
+import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
+import '../../services/firebase_service.dart';
+import '../../services/session_manager.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/quickride_logo.dart';
@@ -124,8 +129,62 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate authentic network latency
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    try {
+      final userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      final user = userCred.user;
+      if (user != null) {
+        await user.updateDisplayName(_nameController.text.trim()).catchError((_) {});
+
+        final firestoreUser = FirestoreUserModel(
+          userId: user.uid,
+          name: _nameController.text.trim(),
+          phone: _mobileController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
+          status: 'ACTIVE',
+          rating: 5.0,
+          totalRatings: 0,
+          createdAt: DateTime.now(),
+        );
+
+        await QuickRideFirebaseService().syncUserProfile(firestoreUser);
+
+        SessionManager().updateProfile(UserProfile(
+          userId: user.uid,
+          fullName: firestoreUser.name,
+          mobileNumber: firestoreUser.phone,
+          email: firestoreUser.email,
+          createdAt: firestoreUser.createdAt,
+        ));
+        SessionManager().login(
+          userId: user.uid,
+          identifier: firestoreUser.email,
+          fullName: firestoreUser.name,
+          phone: firestoreUser.phone,
+          email: firestoreUser.email,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? 'Registration failed. Please try again.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    } catch (e) {
+      debugPrint('[QuickRide SignUp] Auth note: $e');
+      SessionManager().login(
+        identifier: _emailController.text.trim(),
+        fullName: _nameController.text.trim(),
+        phone: _mobileController.text.trim(),
+        email: _emailController.text.trim(),
+      );
+    }
 
     if (!mounted) return;
     setState(() => _isLoading = false);

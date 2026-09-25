@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile_model.dart';
 import '../models/firestore_models.dart';
 import 'firebase_service.dart';
@@ -55,12 +56,42 @@ class SessionManager {
     _syncToFirestore();
   }
 
+  /// Synchronize session with currently logged in Firebase Auth user
+  Future<void> syncWithFirebaseCurrentUser() async {
+    try {
+      final fbUser = FirebaseAuth.instance.currentUser;
+      if (fbUser != null) {
+        final doc = await QuickRideFirebaseService().fetchUserProfile(fbUser.uid);
+        if (doc != null) {
+          _currentUser = UserProfile(
+            userId: doc.userId,
+            fullName: doc.name.isNotEmpty ? doc.name : (fbUser.displayName ?? 'Rider'),
+            mobileNumber: doc.phone,
+            email: doc.email.isNotEmpty ? doc.email : (fbUser.email ?? ''),
+            profileImage: doc.profileImage,
+            createdAt: doc.createdAt,
+          );
+        } else {
+          _currentUser = UserProfile(
+            userId: fbUser.uid,
+            fullName: fbUser.displayName ?? 'Rider',
+            mobileNumber: fbUser.phoneNumber ?? '',
+            email: fbUser.email ?? '',
+            createdAt: DateTime.now(),
+          );
+        }
+        _isLoggedIn = true;
+      }
+    } catch (_) {}
+  }
+
   /// Sets logged-in state and optionally updates credentials from login inputs.
-  void login({String? identifier, String? fullName, String? phone, String? email}) {
+  void login({String? identifier, String? fullName, String? phone, String? email, String? userId}) {
     _isLoggedIn = true;
-    if (identifier != null || fullName != null || phone != null || email != null) {
+    if (identifier != null || fullName != null || phone != null || email != null || userId != null) {
       final isEmail = identifier?.contains("@") ?? false;
       _currentUser = _currentUser.copyWith(
+        userId: userId ?? _currentUser.userId,
         fullName: fullName ?? _currentUser.fullName,
         email: email ?? (isEmail ? identifier : _currentUser.email),
         mobileNumber: phone ?? (!isEmail && identifier != null ? identifier : _currentUser.mobileNumber),
@@ -101,6 +132,9 @@ class SessionManager {
 
   /// Logs out the user. Does NOT delete completed ride history or user profile.
   void logout() {
+    try {
+      FirebaseAuth.instance.signOut();
+    } catch (_) {}
     _isLoggedIn = false;
     _activeRideId = null;
     _cachedActiveRide = null;

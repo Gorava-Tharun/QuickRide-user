@@ -10,131 +10,13 @@ class QuickRideFirebaseService {
   static final QuickRideFirebaseService _instance =
       QuickRideFirebaseService._internal();
   factory QuickRideFirebaseService() => _instance;
-  QuickRideFirebaseService._internal() {
-    _seedLocalPayments();
-    _seedLocalComplaints();
-  }
+  QuickRideFirebaseService._internal();
 
   bool _isFirebaseAvailable = false;
   String _statusMessage = 'Uninitialized';
   final List<FirestorePaymentModel> _localPayments = [];
   final List<FirestoreComplaintModel> _localComplaints = [];
   final Map<String, List<FirestoreComplaintReplyModel>> _localReplies = {};
-
-  void _seedLocalComplaints() {
-    final now = DateTime.now();
-    _localComplaints.addAll([
-      FirestoreComplaintModel(
-        complaintId: 'CMP_1001',
-        userId: 'user_quickride_01',
-        captainId: 'CAP_201',
-        complainantRole: 'USER',
-        complainantName: 'Aarav Sharma',
-        complainantPhone: '+91 98765 43210',
-        category: 'RIDE_ISSUE',
-        subject: 'Toll charged twice on MG Road trip',
-        description: 'I was charged for a toll that was already paid in cash during the trip.',
-        rideId: 'QR_101',
-        paymentId: 'PAY_QR_101',
-        status: 'OPEN',
-        priority: 'NORMAL',
-        createdAt: now.subtract(const Duration(hours: 4)),
-      ),
-      FirestoreComplaintModel(
-        complaintId: 'CMP_1002',
-        userId: 'user_quickride_01',
-        captainId: 'CAP_202',
-        complainantRole: 'USER',
-        complainantName: 'Aarav Sharma',
-        complainantPhone: '+91 98765 43210',
-        category: 'SAFETY',
-        subject: 'Captain driving aggressively in traffic',
-        description: 'The captain was overtaking dangerously near the Whitefield ITPL flyover.',
-        rideId: 'QR_102',
-        paymentId: 'PAY_QR_102',
-        status: 'IN_REVIEW',
-        priority: 'HIGH',
-        adminNotes: 'Assigned to senior trust & safety team.',
-        createdAt: now.subtract(const Duration(days: 1)),
-      ),
-    ]);
-
-    _localReplies['CMP_1002'] = [
-      FirestoreComplaintReplyModel(
-        replyId: 'REP_101',
-        complaintId: 'CMP_1002',
-        senderId: 'admin_quickride',
-        senderName: 'QuickRide Safety Team',
-        senderRole: 'ADMIN',
-        message: 'Hello Aarav, we take safety concerns very seriously. Our safety team is actively reviewing this trip and contacting the captain.',
-        createdAt: now.subtract(const Duration(hours: 20)),
-      ),
-      FirestoreComplaintReplyModel(
-        replyId: 'REP_102',
-        complaintId: 'CMP_1002',
-        senderId: 'user_quickride_01',
-        senderName: 'Aarav Sharma',
-        senderRole: 'USER',
-        message: 'Thank you for following up promptly. Please ensure this captain receives additional driving safety training.',
-        createdAt: now.subtract(const Duration(hours: 18)),
-      ),
-    ];
-  }
-
-  void _seedLocalPayments() {
-    final now = DateTime.now();
-    _localPayments.addAll([
-      FirestorePaymentModel(
-        paymentId: 'PAY_QR_101',
-        rideId: 'QR_101',
-        userId: 'user_quickride_01',
-        captainId: 'CAP_201',
-        passengerName: 'Aarav Sharma',
-        captainName: 'Rajesh Kumar',
-        pickupAddress: 'MG Road Metro Station',
-        dropAddress: 'Koramangala 5th Block',
-        vehicleType: 'Auto',
-        distanceKm: 6.5,
-        originalFare: 150.0,
-        discountAmount: 30.0,
-        finalAmount: 120.0,
-        couponCode: 'SAVE30',
-        currency: 'INR',
-        paymentMethod: 'upi',
-        paymentStatus: FirestorePaymentStatus.paid,
-        gatewayOrderId: 'order_101',
-        gatewayPaymentId: 'pay_101_rzp',
-        gatewaySignature: 'sig_101_verified',
-        createdAt: now.subtract(const Duration(hours: 2)),
-        updatedAt: now.subtract(const Duration(hours: 1, minutes: 58)),
-        paidAt: now.subtract(const Duration(hours: 1, minutes: 58)),
-      ),
-      FirestorePaymentModel(
-        paymentId: 'PAY_QR_102',
-        rideId: 'QR_102',
-        userId: 'user_quickride_01',
-        captainId: 'CAP_202',
-        passengerName: 'Aarav Sharma',
-        captainName: 'Suresh Reddy',
-        pickupAddress: 'Indiranagar 100ft Rd',
-        dropAddress: 'Whitefield ITPL',
-        vehicleType: 'Car',
-        distanceKm: 14.2,
-        originalFare: 320.0,
-        discountAmount: 0.0,
-        finalAmount: 320.0,
-        currency: 'INR',
-        paymentMethod: 'card',
-        paymentStatus: FirestorePaymentStatus.paid,
-        gatewayOrderId: 'order_102',
-        gatewayPaymentId: 'pay_102_rzp',
-        gatewaySignature: 'sig_102_verified',
-        createdAt: now.subtract(const Duration(days: 1)),
-        updatedAt: now.subtract(const Duration(days: 1)),
-        paidAt: now.subtract(const Duration(days: 1)),
-      ),
-    ]);
-  }
 
   bool get isFirebaseAvailable => _isFirebaseAvailable;
   String get statusMessage => _statusMessage;
@@ -264,20 +146,7 @@ class QuickRideFirebaseService {
     double? pickupLongitude,
   }) async {
     if (!_isFirebaseAvailable) {
-      // Local fallback mock captain for offline testing
-      return FirestoreCaptainModel(
-        captainId: 'CPT-78901',
-        name: 'Rajesh Kumar',
-        phone: '9876543210',
-        email: 'rajesh.quickride@gmail.com',
-        vehicleNumber: 'KA-05-HA-1234',
-        vehicleType: vehicleType ?? 'Bike',
-        drivingLicenseNumber: 'DL-KA0520210009876',
-        rating: 4.88,
-        online: true,
-        verificationStatus: 'APPROVED',
-        createdAt: DateTime.now(),
-      );
+      return null;
     }
 
     try {
@@ -1270,16 +1139,7 @@ class QuickRideFirebaseService {
   // ==========================================================================
 
   final List<FirestoreEmergencyIncidentModel> _localEmergencies = [];
-  final List<FirestoreEmergencyContactModel> _localEmergencyContacts = [
-    FirestoreEmergencyContactModel(
-      contactId: 'contact_demo_1',
-      ownerId: 'demo_user',
-      name: 'Family Support',
-      phone: '9876543210',
-      relationship: 'Family',
-      createdAt: DateTime.now().subtract(const Duration(days: 10)),
-    ),
-  ];
+  final List<FirestoreEmergencyContactModel> _localEmergencyContacts = [];
 
   /// Create a new emergency incident
   Future<bool> createEmergencyIncident(FirestoreEmergencyIncidentModel emergency) async {
@@ -1364,7 +1224,7 @@ class QuickRideFirebaseService {
   Future<FirestoreEmergencyIncidentModel?> fetchActiveEmergency(String userId) async {
     if (!_isFirebaseAvailable || userId.isEmpty) {
       return _localEmergencies.cast<FirestoreEmergencyIncidentModel?>().firstWhere(
-        (e) => (e?.userId == userId || userId == 'demo_user') && e?.isActive == true,
+        (e) => e?.userId == userId && e?.isActive == true,
         orElse: () => null,
       );
     }
@@ -1385,7 +1245,7 @@ class QuickRideFirebaseService {
     }
 
     return _localEmergencies.cast<FirestoreEmergencyIncidentModel?>().firstWhere(
-      (e) => (e?.userId == userId || userId == 'demo_user') && e?.isActive == true,
+      (e) => e?.userId == userId && e?.isActive == true,
       orElse: () => null,
     );
   }

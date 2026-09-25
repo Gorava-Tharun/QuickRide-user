@@ -8,6 +8,7 @@ import '../models/ride_model.dart';
 import '../models/safety_preferences_model.dart';
 import 'firebase_service.dart';
 import 'notification_service.dart';
+import 'session_manager.dart';
 
 /// Centralized service managing safety preferences, ride verification checks,
 /// emergency incidents (SOS), and contextual safety notifications.
@@ -139,7 +140,7 @@ class SafetyService extends ChangeNotifier {
     String? reason,
   }) async {
     final targetRide = ride ?? _activeRide;
-    final effectiveUserId = userId ?? targetRide?.userId ?? 'demo_user';
+    final effectiveUserId = userId ?? targetRide?.userId ?? SessionManager().currentUser.userId;
     final rideId = targetRide?.rideId ?? 'RIDE_DIRECT_${DateTime.now().millisecondsSinceEpoch}';
 
     // Best-effort live location retrieval

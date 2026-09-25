@@ -4,9 +4,14 @@ import 'package:quickride_user/models/firestore_models.dart';
 import 'package:quickride_user/screens/payment/digital_receipt_screen.dart';
 import 'package:quickride_user/screens/payment/payment_history_screen.dart';
 import 'package:quickride_user/services/firebase_service.dart';
+import 'package:quickride_user/services/session_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SessionManager().resetToDefault();
+  });
 
   final mockPayment = FirestorePaymentModel(
     paymentId: 'PAY_QR_TEST_101',
@@ -85,6 +90,21 @@ void main() {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+
+      await QuickRideFirebaseService().createPaymentOrder(
+        rideId: 'QR_101',
+        userId: 'user_quickride_01',
+        captainId: 'CAP_201',
+        passengerName: 'Aarav Sharma',
+        captainName: 'Rajesh Kumar',
+        originalFare: 150.0,
+        finalAmount: 120.0,
+      );
+      await QuickRideFirebaseService().verifyPayment(
+        rideId: 'QR_101',
+        paymentId: 'PAY_QR_101',
+        gatewayPaymentId: 'pay_101_rzp',
+      );
 
       await tester.pumpWidget(
         const MaterialApp(

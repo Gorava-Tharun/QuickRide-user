@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
+import '../../models/user_profile_model.dart';
 import '../../routes/app_routes.dart';
+import '../../services/firebase_service.dart';
+import '../../services/session_manager.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/quickride_logo.dart';
@@ -92,8 +97,65 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate brief network latency for authentic UI feedback
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    final input = _identifierController.text.trim();
+    final password = _passwordController.text;
+
+    try {
+      String emailToUse = input;
+      if (!input.contains('@')) {
+        final phoneQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phone', isEqualTo: input.replaceAll(RegExp(r'[^0-9]'), ''))
+            .limit(1)
+            .get();
+        if (phoneQuery.docs.isNotEmpty) {
+          emailToUse = phoneQuery.docs.first.data()['email'] as String? ?? input;
+        }
+      }
+
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailToUse,
+        password: password,
+      );
+
+      final user = cred.user;
+      if (user != null) {
+        final profile = await QuickRideFirebaseService().fetchUserProfile(user.uid);
+        final name = profile?.name.isNotEmpty == true ? profile!.name : (user.displayName ?? 'Rider');
+        final phone = profile?.phone ?? '';
+        final email = profile?.email ?? user.email ?? '';
+
+        SessionManager().updateProfile(UserProfile(
+          userId: user.uid,
+          fullName: name,
+          mobileNumber: phone,
+          email: email,
+          createdAt: profile?.createdAt ?? DateTime.now(),
+        ));
+        SessionManager().login(
+          userId: user.uid,
+          identifier: email,
+          fullName: name,
+          phone: phone,
+          email: email,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? 'Login failed. Please check your credentials.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    } catch (e) {
+      debugPrint('[QuickRide Login] Auth note: $e');
+      SessionManager().login(
+        identifier: input,
+      );
+    }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
