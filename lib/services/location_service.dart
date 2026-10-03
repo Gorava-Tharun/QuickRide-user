@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import '../core/constants/google_maps_config.dart';
+import '../models/location_model.dart';
 
 /// Result wrapper for location permission and position queries.
 class LocationResult {
@@ -117,59 +119,121 @@ class LocationService {
 
   /// Reverse geocodes coordinates to a human-readable real-world street address.
   ///
-  /// Uses OpenStreetMap Nominatim with structured address formatting.
+  /// Uses official Google Geocoding API.
   /// If reverse geocoding is unavailable or fails, gracefully falls back to
-  /// coordinates-based descriptor without using hardcoded or fake locations.
+  /// "Location selected, address unavailable" or formatted coordinate string
+  /// without using hardcoded or fake locations, and NEVER uses OpenStreetMap.
   static Future<String> reverseGeocode(double latitude, double longitude) async {
     if (mockAddress != null) {
       return mockAddress!;
     }
 
     try {
+      final apiKey = GoogleMapsConfig.apiKey;
+      if (apiKey.isEmpty) {
+        return 'Location selected, address unavailable';
+      }
+
       final uri = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=$latitude&lon=$longitude&zoom=18&addressdetails=1',
+        'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latitude,$longitude&key=$apiKey',
       );
-      final response = await http.get(
-        uri,
-        headers: {
-          'User-Agent': 'QuickRide-UserApp/1.0 (support@quickride.com)',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 4));
+      final response = await http.get(uri).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final address = data['address'] as Map<String, dynamic>?;
-        final displayName = data['display_name'] as String?;
-
-        if (address != null) {
-          final parts = <String>[];
-          final road = address['road'] ?? address['pedestrian'] ?? address['footway'] ?? address['street'];
-          final sub = address['suburb'] ?? address['neighbourhood'] ?? address['residential'] ?? address['quarter'];
-          final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
-          final state = address['state'];
-          final postcode = address['postcode'];
-
-          if (road != null && road.toString().trim().isNotEmpty) parts.add(road.toString().trim());
-          if (sub != null && sub.toString().trim().isNotEmpty) parts.add(sub.toString().trim());
-          if (city != null && city.toString().trim().isNotEmpty) parts.add(city.toString().trim());
-          if (state != null && state.toString().trim().isNotEmpty) parts.add(state.toString().trim());
-          if (postcode != null && postcode.toString().trim().isNotEmpty) parts.add(postcode.toString().trim());
-
-          if (parts.isNotEmpty) {
-            return parts.join(', ');
+        final status = data['status'] as String?;
+        if (status == 'OK') {
+          final results = data['results'] as List<dynamic>?;
+          if (results != null && results.isNotEmpty) {
+            final first = results.first as Map<String, dynamic>;
+            final formattedAddress = first['formatted_address'] as String?;
+            if (formattedAddress != null && formattedAddress.trim().isNotEmpty) {
+              return formattedAddress.trim();
+            }
           }
-        }
-
-        if (displayName != null && displayName.trim().isNotEmpty) {
-          return displayName.trim();
         }
       }
     } catch (e) {
-      debugPrint('[LocationService] Reverse geocode note: $e');
+      // Keep API key confidential - do not log request URL
+      debugPrint('[LocationService] Google reverse geocoding note: $e');
     }
 
-    return formatCoordinatesAddress(latitude, longitude);
+    return 'Location selected, address unavailable';
+  }
+
+  /// Reverse geocodes coordinates to a complete [LocationPoint] including real address
+  /// and Place ID where available from Google Geocoding API.
+  static Future<LocationPoint> reverseGeocodePoint(
+    double latitude,
+    double longitude, {
+    String defaultName = 'Selected Destination',
+  }) async {
+    if (mockAddress != null) {
+      return LocationPoint(
+        latitude: latitude,
+        longitude: longitude,
+        name: defaultName,
+        address: mockAddress!,
+      );
+    }
+
+    try {
+      final apiKey = GoogleMapsConfig.apiKey;
+      if (apiKey.isNotEmpty) {
+        final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latitude,$longitude&key=$apiKey',
+        );
+        final response = await http.get(uri).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final status = data['status'] as String?;
+          if (status == 'OK') {
+            final results = data['results'] as List<dynamic>?;
+            if (results != null && results.isNotEmpty) {
+              final first = results.first as Map<String, dynamic>;
+              final formattedAddress = first['formatted_address'] as String? ?? '';
+              final placeId = first['place_id'] as String?;
+
+              // Derive a recognizable title from address components if available
+              String name = defaultName;
+              final components = first['address_components'] as List<dynamic>?;
+              if (components != null && components.isNotEmpty) {
+                final firstComp = components.first as Map<String, dynamic>;
+                final shortName = firstComp['short_name'] as String?;
+                final longName = firstComp['long_name'] as String?;
+                if (longName != null && longName.isNotEmpty) {
+                  name = longName;
+                } else if (shortName != null && shortName.isNotEmpty) {
+                  name = shortName;
+                }
+              } else if (formattedAddress.contains(',')) {
+                name = formattedAddress.split(',').first.trim();
+              }
+
+              return LocationPoint(
+                latitude: latitude,
+                longitude: longitude,
+                name: name.isNotEmpty ? name : defaultName,
+                address: formattedAddress.isNotEmpty
+                    ? formattedAddress
+                    : 'Location selected, address unavailable',
+                placeId: placeId,
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[LocationService] Google reverseGeocodePoint note: $e');
+    }
+
+    return LocationPoint(
+      latitude: latitude,
+      longitude: longitude,
+      name: defaultName,
+      address: 'Location selected, address unavailable',
+    );
   }
 
   /// Generates a readable address string from geographic coordinates.

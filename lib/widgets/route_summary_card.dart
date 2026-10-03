@@ -14,6 +14,7 @@ class RouteSummaryCard extends StatelessWidget {
     required this.onTapDestination,
     required this.onSwap,
     this.routeDetails,
+    this.onTapSelectDestinationOnMap,
   });
 
   final LocationPoint pickup;
@@ -22,6 +23,7 @@ class RouteSummaryCard extends StatelessWidget {
   final VoidCallback onTapDestination;
   final VoidCallback onSwap;
   final RouteDetails? routeDetails;
+  final VoidCallback? onTapSelectDestinationOnMap;
 
   @override
   Widget build(BuildContext context) {
@@ -149,42 +151,71 @@ class RouteSummaryCard extends StatelessWidget {
                             width: destination != null ? 1.2 : 1.0,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            const Text(
-                              AppStrings.destinationLocation,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    AppStrings.destinationLocation,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    destination?.name ?? AppStrings.destinationSearchPrompt,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: destination != null ? FontWeight.w700 : FontWeight.w500,
+                                      color: destination != null
+                                          ? AppColors.textPrimaryLight
+                                          : AppColors.textSecondaryLight,
+                                    ),
+                                  ),
+                                  if (destination != null &&
+                                      destination!.address.isNotEmpty &&
+                                      destination!.address != destination!.name) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      destination!.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.textSecondaryLight,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              destination?.name ?? AppStrings.destinationSearchPrompt,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: destination != null ? FontWeight.w700 : FontWeight.w500,
-                                color: destination != null
-                                    ? AppColors.textPrimaryLight
-                                    : AppColors.textSecondaryLight,
-                              ),
-                            ),
-                            if (destination != null &&
-                                destination!.address.isNotEmpty &&
-                                destination!.address != destination!.name) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                destination!.address,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.textSecondaryLight,
+                            if (onTapSelectDestinationOnMap != null) ...[
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Select on Google Map',
+                                child: InkWell(
+                                  onTap: onTapSelectDestinationOnMap,
+                                  borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardDark,
+                                      borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                      border: Border.all(color: AppColors.borderDark),
+                                    ),
+                                    child: const Icon(
+                                      Icons.map_rounded,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],

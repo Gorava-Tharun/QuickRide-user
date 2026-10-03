@@ -52,56 +52,80 @@ class FindingCaptainScreen extends StatefulWidget {
 }
 
 class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
-  late CaptainMatchingService _matchingService;
   late RideRequest _currentRideRequest;
-  String _currentStatusMessage = 'Finding nearby captains...';
+  String _currentStatusMessage = 'Searching for a Captain...';
   GoogleMapController? _mapController;
   StreamSubscription<SharedRideModel?>? _rideSubscription;
 
   @override
   void initState() {
     super.initState();
-    _matchingService = widget.matchingService ?? CaptainMatchingService();
-    _currentRideRequest = widget.rideRequest;
-    if (widget.firestoreRideId != null &&
-        QuickRideFirebaseService().isFirebaseAvailable) {
-      _listenToFirestoreRide();
-    } else {
-      _startCaptainSearch();
-    }
+    _currentRideRequest = widget.rideRequest.copyWith(
+      status: RideStatus.searchingForCaptain,
+    );
+    _currentStatusMessage = 'Searching for a Captain...';
+    _listenToFirestoreRide();
   }
 
   void _listenToFirestoreRide() {
+    final rideId = widget.firestoreRideId ?? _currentRideRequest.rideId;
+    final fbService = QuickRideFirebaseService();
+
+    if (!fbService.isFirebaseAvailable || rideId.isEmpty) {
+      setState(() {
+        _currentRideRequest = _currentRideRequest.copyWith(
+          status: RideStatus.searchingForCaptain,
+        );
+        _currentStatusMessage = 'Searching for a Captain...';
+      });
+      return;
+    }
+
     setState(() {
       _currentRideRequest = _currentRideRequest.copyWith(
         status: RideStatus.searchingForCaptain,
       );
-      _currentStatusMessage = 'Connecting you with a captain...';
+      _currentStatusMessage = 'Searching for a Captain...';
     });
 
-    _rideSubscription = QuickRideFirebaseService()
-        .streamRide(widget.firestoreRideId!)
-        .listen((ride) async {
+    _rideSubscription?.cancel();
+    _rideSubscription = fbService.streamRide(rideId).listen((ride) async {
       if (ride == null || !mounted) return;
 
       if (ride.status == SharedRideStatus.accepted &&
           _currentRideRequest.status != RideStatus.captainFound) {
+        // Fetch genuine captain details from Firestore
         FirestoreCaptainModel? captainProfile = widget.assignedCaptain;
-        if (captainProfile == null && ride.captainId != null) {
-          captainProfile = await QuickRideFirebaseService()
-              .fetchCaptainProfile(ride.captainId!);
+        if (captainProfile == null && ride.captainId != null && ride.captainId!.isNotEmpty) {
+          captainProfile = await fbService.fetchCaptainProfile(ride.captainId!);
         }
 
+        final captainName = (captainProfile != null && captainProfile.name.trim().isNotEmpty)
+            ? captainProfile.name.trim()
+            : 'Captain';
+        final captainPhone = (captainProfile != null && captainProfile.phone.trim().isNotEmpty)
+            ? captainProfile.phone.trim()
+            : '';
+        final captainVehicleType = (captainProfile != null && captainProfile.vehicleType.trim().isNotEmpty)
+            ? captainProfile.vehicleType.trim()
+            : ride.vehicleType;
+        final captainVehicleNumber = (captainProfile != null && captainProfile.vehicleNumber.trim().isNotEmpty)
+            ? captainProfile.vehicleNumber.trim()
+            : 'QR-CAPTAIN';
+        final captainRating = (captainProfile != null && captainProfile.rating > 0)
+            ? captainProfile.rating
+            : 5.0;
+        final totalRatings = captainProfile?.totalRatings ?? 1;
+
         final matchedCaptain = CaptainModel(
-          id: captainProfile?.captainId ?? ride.captainId ?? 'CPT-78901',
-          name: captainProfile?.name ?? 'Rajesh Kumar',
-          phone: captainProfile?.phone ?? '+91 98765 43210',
-          vehicleType: captainProfile?.vehicleType ?? ride.vehicleType,
-          vehicleModel:
-              captainProfile?.vehicleType ?? 'QuickRide ${ride.vehicleType}',
-          vehicleNumber: captainProfile?.vehicleNumber ?? 'KA-05-HA-1234',
-          rating: captainProfile?.rating ?? 4.88,
-          completedRides: 148,
+          id: ride.captainId ?? captainProfile?.captainId ?? 'CPT-REAL',
+          name: captainName,
+          phone: captainPhone.isNotEmpty ? captainPhone : '+91 98765 43210',
+          vehicleType: captainVehicleType,
+          vehicleModel: captainVehicleType,
+          vehicleNumber: captainVehicleNumber,
+          rating: captainRating,
+          completedRides: totalRatings,
           estimatedArrivalMinutes: 3,
         );
 
@@ -110,8 +134,7 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
             id: 'notif_found_${_currentRideRequest.rideId}',
             type: NotificationType.captainFound,
             title: 'Captain Found',
-            message:
-                'Your captain ${matchedCaptain.name} has accepted your ride request.',
+            message: 'Your captain $captainName has accepted your ride request.',
             createdAt: DateTime.now(),
             rideId: _currentRideRequest.rideId,
           ),
@@ -126,66 +149,40 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
             _currentStatusMessage = 'Captain accepted your ride!';
           });
         }
+      } else if (ride.status == SharedRideStatus.requested) {
+        // When searching or if captains reject, ride remains REQUESTED in Firestore.
+        // User continues searching for another available Captain.
+        if (mounted && _currentRideRequest.status != RideStatus.searchingForCaptain) {
+          setState(() {
+            _currentRideRequest = _currentRideRequest.copyWith(
+              status: RideStatus.searchingForCaptain,
+            );
+            _currentStatusMessage = 'Searching for a Captain...';
+          });
+        }
       } else if (ride.status == SharedRideStatus.cancelled &&
           _currentRideRequest.status != RideStatus.cancelled) {
         if (mounted) {
+          _rideSubscription?.cancel();
           setState(() {
             _currentRideRequest = _currentRideRequest.copyWith(
               status: RideStatus.cancelled,
             );
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This ride request has been cancelled.'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.home,
+            (route) => false,
+          );
         }
       }
     });
-  }
-
-  void _startCaptainSearch() async {
-    setState(() {
-      _currentRideRequest = _currentRideRequest.copyWith(
-        status: RideStatus.searchingForCaptain,
-      );
-      _currentStatusMessage = 'Finding nearby captains...';
-    });
-
-    final matchedCaptain = await _matchingService.searchForCaptain(
-      rideRequest: _currentRideRequest,
-      totalDurationSeconds: widget.searchDurationSeconds,
-      simulateNoCaptain: widget.simulateNoCaptain,
-      onStatusUpdate: (status) {
-        if (mounted) {
-          setState(() {
-            _currentStatusMessage = status;
-          });
-        }
-      },
-    );
-
-    if (!mounted) return;
-
-    if (matchedCaptain != null) {
-      NotificationService().addNotification(
-        AppNotification(
-          id: 'notif_found_${_currentRideRequest.rideId}',
-          type: NotificationType.captainFound,
-          title: 'Captain Found',
-          message: 'Your captain ${matchedCaptain.name} has been assigned to your ride.',
-          createdAt: DateTime.now(),
-          rideId: _currentRideRequest.rideId,
-        ),
-      );
-      setState(() {
-        _currentRideRequest = _currentRideRequest.copyWith(
-          status: RideStatus.captainFound,
-          captain: matchedCaptain,
-        );
-      });
-    } else {
-      setState(() {
-        _currentRideRequest = _currentRideRequest.copyWith(
-          status: RideStatus.noCaptainAvailable,
-        );
-      });
-    }
   }
 
   void _handleCancelRide() async {
@@ -663,7 +660,7 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
             Expanded(
               child: PrimaryButton(
                 text: 'Try Again',
-                onPressed: _startCaptainSearch,
+                onPressed: _listenToFirestoreRide,
                 icon: Icons.refresh_rounded,
               ),
             ),

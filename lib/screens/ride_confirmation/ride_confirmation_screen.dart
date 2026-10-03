@@ -156,10 +156,26 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
       couponCode: appliedOffer?.couponCode,
       originalFare: widget.fareDetails.originalFare,
       discountAmount: widget.fareDetails.totalDiscount,
+      paymentMethod: _selectedPaymentMethod == PaymentMethod.online ? 'online' : 'cash',
+      rejectedCaptains: const [],
     );
 
     // Save to Firestore
-    await fbService.createRideRequest(sharedRide);
+    final created = await fbService.createRideRequest(sharedRide);
+    if (!created && fbService.isFirebaseAvailable) {
+      if (!mounted) return;
+      setState(() => _isRequesting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to submit ride request. Please check your internet connection.'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    SessionManager().setActiveRide(rideId, ride: sharedRide);
 
     // Create RideRequest object for UI / Local State
     final rideRequest = RideRequest.create(

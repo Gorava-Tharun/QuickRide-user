@@ -71,6 +71,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _currentGpsAddress;
   int _selectedNavIndex = 0;
 
+  // Destination Selection on Map state (Method 2)
+  bool _isSelectingDestinationOnMap = false;
+  LocationPoint? _tempMapDestination;
+  bool _isGeocodingDestination = false;
+
   @override
   void initState() {
     super.initState();
@@ -348,36 +353,82 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Handles user tapping on map to select pickup or destination.
+  /// Handles user tapping on map to select/move destination marker.
   Future<void> _onMapTapped(LatLng point) async {
-    final address = await LocationService.reverseGeocode(point.latitude, point.longitude);
+    setState(() {
+      _isSelectingDestinationOnMap = true;
+      _isGeocodingDestination = true;
+      _tempMapDestination = LocationPoint(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        name: 'Selected Destination',
+        address: 'Detecting address...',
+      );
+    });
+    _rebuildMapMarkers();
+
+    // Reverse geocode via official Google Geocoding API
+    final pointDetails = await LocationService.reverseGeocodePoint(
+      point.latitude,
+      point.longitude,
+      defaultName: 'Selected Destination',
+    );
+
     if (!mounted) return;
 
-    if (_destinationLocation == null) {
-      // If destination not yet set, set destination
-      _setDestination(
-        LocationPoint(
-          latitude: point.latitude,
-          longitude: point.longitude,
+    setState(() {
+      _isGeocodingDestination = false;
+      _tempMapDestination = pointDetails;
+    });
+    _rebuildMapMarkers();
+  }
+
+  /// Initiates destination selection mode on map.
+  void _startSelectDestinationOnMap() {
+    setState(() {
+      _isSelectingDestinationOnMap = true;
+      if (_destinationLocation != null) {
+        _tempMapDestination = _destinationLocation;
+      } else {
+        // Drop initial marker slightly offset from pickup so it is immediately visible
+        _tempMapDestination = LocationPoint(
+          latitude: _pickupLocation.latitude + 0.008,
+          longitude: _pickupLocation.longitude + 0.008,
           name: 'Selected Destination',
-          address: address,
-        ),
-      );
-      _showNotice('Destination marked on map.');
-    } else {
-      // Destination exists, update pickup location to tapped point
-      _hasUserManuallyChangedPickup = true;
-      setState(() {
-        _pickupLocation = LocationPoint(
-          latitude: point.latitude,
-          longitude: point.longitude,
-          name: 'Custom Pickup',
-          address: address,
+          address: 'Tap on map or drag marker to set exact location',
         );
-      });
-      _updateRouteAndCamera();
-      _showNotice('Pickup location updated from map.');
-    }
+      }
+    });
+    _rebuildMapMarkers();
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _tempMapDestination!.toLatLng(),
+          zoom: 15.0,
+        ),
+      ),
+    );
+    _showNotice('Tap anywhere on the Google Map to drop destination.');
+  }
+
+  /// Confirms destination chosen on map and updates routing/fare.
+  void _confirmMapDestination() {
+    if (_tempMapDestination == null) return;
+    _setDestination(_tempMapDestination!);
+    setState(() {
+      _isSelectingDestinationOnMap = false;
+      _tempMapDestination = null;
+    });
+    _showNotice('Destination confirmed from map.');
+  }
+
+  /// Cancels map selection mode and restores previous state.
+  void _cancelMapDestination() {
+    setState(() {
+      _isSelectingDestinationOnMap = false;
+      _tempMapDestination = null;
+    });
+    _rebuildMapMarkers();
   }
 
   /// Opens search dialog for Pickup.
@@ -387,6 +438,8 @@ class _HomeScreenState extends State<HomeScreen> {
       title: 'Select Pickup Location',
       initialQuery: _pickupLocation.name == AppStrings.currentLocation ? '' : _pickupLocation.name,
       isPickup: true,
+      currentLatitude: _currentGpsPosition?.latitude ?? _pickupLocation.latitude,
+      currentLongitude: _currentGpsPosition?.longitude ?? _pickupLocation.longitude,
     );
 
     if (selected != null && mounted) {
@@ -403,17 +456,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Opens search dialog for Destination.
+  /// Opens search dialog for Destination (Method 1 & Method 2 entry).
   Future<void> _handleSearchDestination() async {
     final selected = await LocationSearchDialog.show(
       context,
       title: 'Select Destination',
       initialQuery: _destinationLocation?.name ?? '',
       isPickup: false,
+      currentLatitude: _currentGpsPosition?.latitude ?? _pickupLocation.latitude,
+      currentLongitude: _currentGpsPosition?.longitude ?? _pickupLocation.longitude,
     );
 
     if (selected != null && mounted) {
-      _setDestination(selected);
+      if (selected.placeId == 'select_on_map') {
+        _startSelectDestinationOnMap();
+      } else {
+        _setDestination(selected);
+      }
     }
   }
 
@@ -525,16 +584,63 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    // 3. Destination Marker (Red)
-    if (_destinationLocation != null) {
+    // 3. Destination Marker (Red, Draggable)
+    if (_isSelectingDestinationOnMap && _tempMapDestination != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('destination_temp_marker'),
+          position: _tempMapDestination!.toLatLng(),
+          draggable: true,
+          onDragEnd: (newPosition) async {
+            setState(() {
+              _isGeocodingDestination = true;
+              _tempMapDestination = _tempMapDestination!.copyWith(
+                latitude: newPosition.latitude,
+                longitude: newPosition.longitude,
+                address: 'Detecting address...',
+              );
+            });
+            final pointDetails = await LocationService.reverseGeocodePoint(
+              newPosition.latitude,
+              newPosition.longitude,
+              defaultName: 'Selected Destination',
+            );
+            if (!mounted) return;
+            setState(() {
+              _isGeocodingDestination = false;
+              _tempMapDestination = pointDetails;
+            });
+            _rebuildMapMarkers();
+          },
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: InfoWindow(
+            title: 'Selected Destination',
+            snippet: _tempMapDestination!.address,
+          ),
+        ),
+      );
+    } else if (_destinationLocation != null) {
       markers.add(
         Marker(
           markerId: const MarkerId('destination_marker'),
           position: _destinationLocation!.toLatLng(),
+          draggable: true,
+          onDragEnd: (newPosition) async {
+            final pointDetails = await LocationService.reverseGeocodePoint(
+              newPosition.latitude,
+              newPosition.longitude,
+              defaultName: 'Selected Destination',
+            );
+            if (!mounted) return;
+            _setDestination(pointDetails);
+            _showNotice('Destination updated from map.');
+          },
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
             title: AppStrings.destinationMarkerTitle,
-            snippet: _destinationLocation!.name,
+            snippet: _destinationLocation!.address.isNotEmpty
+                ? _destinationLocation!.address
+                : _destinationLocation!.name,
           ),
         ),
       );
@@ -649,12 +755,19 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildGoogleMapView(),
               const SizedBox(height: AppDimensions.space16),
 
+              // Method 2: Floating "Confirm Destination" card when in map selection mode
+              if (_isSelectingDestinationOnMap && _tempMapDestination != null) ...[
+                _buildConfirmDestinationCard(),
+                const SizedBox(height: AppDimensions.space16),
+              ],
+
               // 4. Pickup & Destination Selection Card with Swap Button
               RouteSummaryCard(
                 pickup: _pickupLocation,
                 destination: _destinationLocation,
                 onTapPickup: _handleSearchPickup,
                 onTapDestination: _handleSearchDestination,
+                onTapSelectDestinationOnMap: _startSelectDestinationOnMap,
                 onSwap: _handleSwapLocations,
                 routeDetails: _routeDetails,
               ),
@@ -898,22 +1011,31 @@ class _HomeScreenState extends State<HomeScreen> {
               top: 10,
               left: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark.withValues(alpha: 0.85),
+                  color: AppColors.surfaceDark.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                  border: Border.all(color: AppColors.borderDark),
+                  border: Border.all(
+                    color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.borderDark,
+                    width: _isSelectingDestinationOnMap ? 1.5 : 1.0,
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.touch_app_rounded, size: 13, color: AppColors.primary),
-                    SizedBox(width: 6),
+                    Icon(
+                      _isSelectingDestinationOnMap ? Icons.place_rounded : Icons.touch_app_rounded,
+                      size: 13,
+                      color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.secondary,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      AppStrings.tapToSelectOnMap,
+                      _isSelectingDestinationOnMap
+                          ? 'Tap anywhere to drop destination marker'
+                          : AppStrings.tapToSelectOnMap,
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondaryLight,
+                        color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.textSecondaryLight,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -923,6 +1045,127 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmDestinationCard() {
+    final dest = _tempMapDestination!;
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.space16),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: AppDimensions.space12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Confirm Destination',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Lat: ${dest.latitude.toStringAsFixed(5)}, Lng: ${dest.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isGeocodingDestination)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.space12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceDark,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+              border: Border.all(color: AppColors.borderDark),
+            ),
+            child: Text(
+              dest.address,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimaryLight,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimensions.space12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSecondaryLight,
+                    side: const BorderSide(color: AppColors.borderDark),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                    ),
+                  ),
+                  onPressed: _cancelMapDestination,
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: AppDimensions.space12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                    ),
+                  ),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Confirm Destination', style: TextStyle(fontWeight: FontWeight.w700)),
+                  onPressed: _confirmMapDestination,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

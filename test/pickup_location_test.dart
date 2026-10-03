@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:quickride_user/core/constants/app_strings.dart';
+import 'package:quickride_user/models/location_model.dart';
 import 'package:quickride_user/screens/home/home_screen.dart';
 import 'package:quickride_user/screens/vehicle_selection/vehicle_selection_screen.dart';
 import 'package:quickride_user/services/location_service.dart';
+import 'package:quickride_user/services/places_service.dart';
 import 'package:quickride_user/widgets/route_summary_card.dart';
 
 Widget buildTestableHomeScreen({Key? key}) {
@@ -33,6 +35,29 @@ void main() {
     LocationService.mockPosition = null;
     LocationService.mockAddress = null;
     LocationService.mockPermissionDenied = false;
+    PlacesService.mockSearchResults = const [
+      LocationPoint(
+        latitude: 15.8281,
+        longitude: 78.0373,
+        name: 'Kurnool City Railway Station',
+        address: 'Station Road, Kurnool, Andhra Pradesh 518004',
+        placeId: 'knl_railway',
+      ),
+      LocationPoint(
+        latitude: 15.7118,
+        longitude: 78.1888,
+        name: 'Kurnool Airport (Uyyalawada Narasimha Reddy)',
+        address: 'NH 40, Orvakal, Andhra Pradesh 518010',
+        placeId: 'knl_airport',
+      ),
+      LocationPoint(
+        latitude: 12.9716,
+        longitude: 77.5946,
+        name: 'MG Road Metro Station',
+        address: 'MG Road, Bengaluru',
+        placeId: 'blr_mgroad',
+      ),
+    ];
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     binding.platformDispatcher.views.first.physicalSize = const Size(1200, 2400);
     binding.platformDispatcher.views.first.devicePixelRatio = 1.0;
@@ -42,6 +67,7 @@ void main() {
     LocationService.mockPosition = null;
     LocationService.mockAddress = null;
     LocationService.mockPermissionDenied = false;
+    PlacesService.mockSearchResults = null;
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     binding.platformDispatcher.views.first.resetPhysicalSize();
     binding.platformDispatcher.views.first.resetDevicePixelRatio();
