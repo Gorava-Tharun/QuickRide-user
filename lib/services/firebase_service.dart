@@ -190,12 +190,19 @@ class QuickRideFirebaseService {
             if (excludeCaptains.contains(c.captainId)) return false;
             if (!c.online) return false;
             // Verification check
-            final isVerified = c.verificationStatus == 'APPROVED' || c.isApproved;
+            final isVerified = c.verificationStatus == 'APPROVED' ||
+                c.verificationStatus == 'VERIFIED' ||
+                c.isApproved;
             if (!isVerified) return false;
             // Vehicle type matching
             if (normalizedRequestedType.isNotEmpty) {
               final capVehicleType = c.vehicleType.trim().toLowerCase();
-              final matches = capVehicleType.contains(normalizedRequestedType) ||
+              final isBike = capVehicleType.contains('bike') && normalizedRequestedType.contains('bike');
+              final isAuto = capVehicleType.contains('auto') && normalizedRequestedType.contains('auto');
+              final isCar = (capVehicleType.contains('car') || capVehicleType.contains('cab')) &&
+                  (normalizedRequestedType.contains('car') || normalizedRequestedType.contains('cab'));
+              final matches = isBike || isAuto || isCar ||
+                  capVehicleType.contains(normalizedRequestedType) ||
                   normalizedRequestedType.contains(capVehicleType);
               if (!matches) return false;
             }
