@@ -13,6 +13,59 @@ class PlacesService {
   /// Test hook for unit and widget testing
   static List<LocationPoint>? mockSearchResults;
 
+  /// Curated transit spots shown when search input is empty for quick selection
+  static const List<LocationPoint> curatedLocations = [
+    LocationPoint(
+      latitude: 15.8281,
+      longitude: 78.0373,
+      name: 'Kurnool City Railway Station',
+      address: 'Station Road, Kurnool, Andhra Pradesh 518004',
+      placeId: 'knl_railway',
+    ),
+    LocationPoint(
+      latitude: 15.8340,
+      longitude: 78.0410,
+      name: 'Kurnool APSRTC Bus Stand',
+      address: 'Near Old Bus Stand, Kurnool, Andhra Pradesh 518001',
+      placeId: 'knl_bus',
+    ),
+    LocationPoint(
+      latitude: 15.8286,
+      longitude: 78.0289,
+      name: 'Konda Reddy Buruju',
+      address: 'Historical Fort, Kurnool, Andhra Pradesh 518001',
+      placeId: 'knl_fort',
+    ),
+    LocationPoint(
+      latitude: 15.7118,
+      longitude: 78.1888,
+      name: 'Kurnool Airport (Uyyalawada Narasimha Reddy)',
+      address: 'NH 40, Orvakal, Andhra Pradesh 518010',
+      placeId: 'knl_airport',
+    ),
+    LocationPoint(
+      latitude: 12.9716,
+      longitude: 77.5946,
+      name: 'MG Road Metro Station',
+      address: 'Mahatma Gandhi Road, Bengaluru, Karnataka 560001',
+      placeId: 'blr_mgroad',
+    ),
+    LocationPoint(
+      latitude: 12.9781,
+      longitude: 77.5696,
+      name: 'KSR Bengaluru City Railway Station (Majestic)',
+      address: 'Kempegowda, Sevashrama, Bengaluru, Karnataka 560023',
+      placeId: 'blr_railway',
+    ),
+    LocationPoint(
+      latitude: 13.1986,
+      longitude: 77.7066,
+      name: 'Kempegowda International Airport (BLR)',
+      address: 'KIAL Rd, Devanahalli, Bengaluru, Karnataka 560300',
+      placeId: 'blr_airport',
+    ),
+  ];
+
   /// Searches real locations matching the query using Google Places API (New)
   /// biased toward the user's current GPS position (50 km radius) without restrictive type filters,
   /// enabling discovery of small/local addresses, streets, shops, colleges, and landmarks.

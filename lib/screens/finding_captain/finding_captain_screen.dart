@@ -72,12 +72,22 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
     final fbService = QuickRideFirebaseService();
 
     if (!fbService.isFirebaseAvailable || rideId.isEmpty) {
-      setState(() {
-        _currentRideRequest = _currentRideRequest.copyWith(
-          status: RideStatus.searchingForCaptain,
-        );
-        _currentStatusMessage = 'Searching for a Captain...';
-      });
+      if (widget.searchDurationSeconds == 0) {
+        if (widget.simulateNoCaptain) {
+          setState(() {
+            _currentRideRequest = _currentRideRequest.copyWith(
+              status: RideStatus.noCaptainAvailable,
+            );
+          });
+        } else {
+          setState(() {
+            _currentRideRequest = _currentRideRequest.copyWith(
+              status: RideStatus.captainFound,
+              captain: CaptainModel.demo(vehicleCategoryTitle: _currentRideRequest.selectedVehicle.title),
+            );
+          });
+        }
+      }
       return;
     }
 
@@ -432,6 +442,16 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
             color: AppColors.primary,
+          ),
+        ),
+
+        const SizedBox(height: 2),
+
+        const Text(
+          'Finding nearby captains...',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondaryLight,
           ),
         ),
 

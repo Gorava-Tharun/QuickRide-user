@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/constants/app_strings.dart';
@@ -126,6 +128,13 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
 
     final fbService = QuickRideFirebaseService();
     final user = SessionManager().currentUser;
+    String? authUid;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        authUid = FirebaseAuth.instance.currentUser?.uid;
+      }
+    } catch (_) {}
+    final currentUserId = (authUid != null && authUid.isNotEmpty) ? authUid : user.userId;
 
     final rideId = 'RIDE-${DateTime.now().millisecondsSinceEpoch}';
     final appliedOffer = OfferService().appliedOffer;
@@ -133,7 +142,7 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
     // Create SharedRideModel for Firestore with offer details if applied
     final sharedRide = SharedRideModel(
       rideId: rideId,
-      userId: user.userId,
+      userId: currentUserId,
       userName: user.fullName,
       captainId: null, // Unassigned at creation; matched via dispatch
       pickup: widget.routeDetails.pickup.name,
@@ -178,11 +187,18 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
     SessionManager().setActiveRide(rideId, ride: sharedRide);
 
     // Create RideRequest object for UI / Local State
-    final rideRequest = RideRequest.create(
-      routeDetails: widget.routeDetails,
+    final rideRequest = RideRequest(
+      rideId: rideId,
+      userId: currentUserId,
+      pickup: widget.routeDetails.pickup,
+      destination: widget.routeDetails.destination,
       selectedVehicle: widget.selectedVehicle,
+      distanceKm: widget.routeDetails.distanceKm,
+      estimatedMinutes: widget.routeDetails.estimatedMinutes,
       fareDetails: widget.fareDetails,
       paymentMethod: _selectedPaymentMethod,
+      status: RideStatus.searchingForCaptain,
+      createdAt: DateTime.now(),
     );
 
     await Future<void>.delayed(const Duration(milliseconds: 300));

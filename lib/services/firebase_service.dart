@@ -135,7 +135,7 @@ class QuickRideFirebaseService {
 
   /// Create a ride request document in Cloud Firestore
   Future<bool> createRideRequest(SharedRideModel ride) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: Ride request created locally.');
       return true;
     }
@@ -161,7 +161,7 @@ class QuickRideFirebaseService {
     double? pickupLatitude,
     double? pickupLongitude,
   }) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       return null;
     }
 
@@ -246,7 +246,7 @@ class QuickRideFirebaseService {
 
   /// Assign an online captain to a ride document
   Future<bool> assignCaptainToRide(String rideId, String captainId) async {
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance
@@ -263,7 +263,7 @@ class QuickRideFirebaseService {
 
   /// Fetch a single ride document from Firestore
   Future<SharedRideModel?> fetchRide(String rideId) async {
-    if (!_isFirebaseAvailable || rideId.isEmpty) return null;
+    if (!isFirebaseAvailable || rideId.isEmpty) return null;
     try {
       final doc = await FirebaseFirestore.instance.collection('rides').doc(rideId).get();
       if (doc.exists && doc.data() != null) {
@@ -277,7 +277,7 @@ class QuickRideFirebaseService {
 
   /// Stream changes for an active ride document
   Stream<SharedRideModel?> streamRide(String rideId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       return const Stream.empty();
     }
 
@@ -295,7 +295,7 @@ class QuickRideFirebaseService {
 
   /// Fetch captain profile by captainId
   Future<FirestoreCaptainModel?> fetchCaptainProfile(String captainId) async {
-    if (!_isFirebaseAvailable) return null;
+    if (!isFirebaseAvailable) return null;
 
     try {
       final doc = await FirebaseFirestore.instance
@@ -318,7 +318,7 @@ class QuickRideFirebaseService {
     String? cancellationReason,
     String? cancellationDescription,
   }) async {
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       final docRef = FirebaseFirestore.instance.collection('rides').doc(rideId);
@@ -355,7 +355,7 @@ class QuickRideFirebaseService {
 
   /// Stream Captain live GPS location from captains/{captainId}
   Stream<Map<String, double>?> streamCaptainLocation(String captainId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       return const Stream.empty();
     }
 
@@ -377,7 +377,7 @@ class QuickRideFirebaseService {
 
   /// Fetch active ride for user during app restart recovery
   Future<SharedRideModel?> fetchActiveRideForUser(String userId) async {
-    if (!_isFirebaseAvailable) return null;
+    if (!isFirebaseAvailable) return null;
 
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -406,7 +406,7 @@ class QuickRideFirebaseService {
   /// Checks whether a rating document already exists for this ride and ratedBy
   /// to strictly prevent duplicate ratings.
   Future<bool> submitRating(FirestoreRatingModel rating) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: Rating for ${rating.rideId} saved locally.');
       return true;
     }
@@ -475,7 +475,7 @@ class QuickRideFirebaseService {
 
   /// Check if the user has already rated a ride in Firestore
   Future<bool> hasRated(String rideId, {String ratedBy = 'user'}) async {
-    if (!_isFirebaseAvailable) return false;
+    if (!isFirebaseAvailable) return false;
 
     try {
       final docId = '${rideId}_$ratedBy';
@@ -489,7 +489,7 @@ class QuickRideFirebaseService {
 
   /// Fetch rating document for a ride
   Future<FirestoreRatingModel?> fetchRating(String rideId, {String ratedBy = 'user'}) async {
-    if (!_isFirebaseAvailable) return null;
+    if (!isFirebaseAvailable) return null;
 
     try {
       final docId = '${rideId}_$ratedBy';
@@ -505,7 +505,7 @@ class QuickRideFirebaseService {
 
   /// Update device FCM push token in Firestore user profile
   Future<bool> updateFcmToken(String userId, String? token) async {
-    if (!_isFirebaseAvailable || userId.isEmpty) {
+    if (!isFirebaseAvailable || userId.isEmpty) {
       debugPrint('[QuickRide User] Offline mode: FCM token update skipped.');
       return false;
     }
@@ -525,7 +525,7 @@ class QuickRideFirebaseService {
 
   /// Create a notification record in Firestore
   Future<bool> createNotification(FirestoreNotificationModel notification) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: Notification record saved locally.');
       return false;
     }
@@ -545,7 +545,7 @@ class QuickRideFirebaseService {
 
   /// Stream notifications for this user in real time
   Stream<List<FirestoreNotificationModel>> streamUserNotifications(String userId) {
-    if (!_isFirebaseAvailable || userId.isEmpty) return const Stream.empty();
+    if (!isFirebaseAvailable || userId.isEmpty) return const Stream.empty();
 
     return FirebaseFirestore.instance
         .collection('notifications')
@@ -561,7 +561,7 @@ class QuickRideFirebaseService {
 
   /// Mark a notification as read in Firestore
   Future<bool> markNotificationRead(String notificationId) async {
-    if (!_isFirebaseAvailable || notificationId.isEmpty) return false;
+    if (!isFirebaseAvailable || notificationId.isEmpty) return false;
 
     try {
       await FirebaseFirestore.instance
@@ -577,7 +577,7 @@ class QuickRideFirebaseService {
 
   /// Stream all active offers from Firestore
   Stream<List<FirestoreOfferModel>> streamActiveOffers() {
-    if (!_isFirebaseAvailable) return const Stream.empty();
+    if (!isFirebaseAvailable) return const Stream.empty();
 
     return FirebaseFirestore.instance
         .collection('offers')
@@ -594,7 +594,7 @@ class QuickRideFirebaseService {
 
   /// Fetch active offers once
   Future<List<FirestoreOfferModel>> fetchActiveOffers() async {
-    if (!_isFirebaseAvailable) return [];
+    if (!isFirebaseAvailable) return [];
 
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -625,7 +625,7 @@ class QuickRideFirebaseService {
       return {'isValid': false, 'message': 'Please enter a coupon code.'};
     }
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       // Offline fallback handled in OfferService
       return {'isValid': false, 'isOffline': true};
     }
@@ -739,7 +739,7 @@ class QuickRideFirebaseService {
       _localPayments.insert(0, model);
     }
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: Payment order $paymentId created locally.');
       return model;
     }
@@ -794,7 +794,7 @@ class QuickRideFirebaseService {
       );
     }
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: Payment $paymentId marked PAID locally.');
       return {
         'success': true,
@@ -858,7 +858,7 @@ class QuickRideFirebaseService {
       );
     }
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance.collection('payments').doc(paymentId).update({
@@ -876,7 +876,7 @@ class QuickRideFirebaseService {
   /// Fetch payment document for a given rideId
   Future<FirestorePaymentModel?> fetchPaymentForRide(String rideId) async {
     final paymentId = 'PAY_$rideId';
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       try {
         return _localPayments.firstWhere((p) => p.paymentId == paymentId || p.rideId == rideId);
       } catch (_) {
@@ -898,7 +898,7 @@ class QuickRideFirebaseService {
   /// Stream payment document updates in real-time
   Stream<FirestorePaymentModel?> streamPaymentForRide(String rideId) {
     final paymentId = 'PAY_$rideId';
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       try {
         final match = _localPayments.firstWhere((p) => p.paymentId == paymentId || p.rideId == rideId);
         return Stream.value(match);
@@ -919,7 +919,7 @@ class QuickRideFirebaseService {
 
   /// Real-time stream of all payments for a specific user, sorted newest first
   Stream<List<FirestorePaymentModel>> streamUserPayments(String userId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = _localPayments.where((p) => p.userId == userId).toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return Stream.value(list);
@@ -940,7 +940,7 @@ class QuickRideFirebaseService {
 
   /// Fetch user payments once from Firestore
   Future<List<FirestorePaymentModel>> fetchUserPayments(String userId) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = _localPayments.where((p) => p.userId == userId).toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
@@ -971,7 +971,7 @@ class QuickRideFirebaseService {
 
   /// Stream real-time complaints filed by user
   Stream<List<FirestoreComplaintModel>> streamUserComplaints(String userId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = _localComplaints.where((c) => c.userId == userId).toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return Stream.value(list);
@@ -992,7 +992,7 @@ class QuickRideFirebaseService {
 
   /// Fetch user complaints once
   Future<List<FirestoreComplaintModel>> fetchUserComplaints(String userId) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = _localComplaints.where((c) => c.userId == userId).toList();
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
@@ -1019,7 +1019,7 @@ class QuickRideFirebaseService {
 
   /// Fetch single complaint by ID
   Future<FirestoreComplaintModel?> fetchComplaintById(String complaintId) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       return _localComplaints.cast<FirestoreComplaintModel?>().firstWhere(
             (c) => c?.complaintId == complaintId,
             orElse: () => null,
@@ -1050,7 +1050,7 @@ class QuickRideFirebaseService {
     _localComplaints.removeWhere((c) => c.complaintId == complaint.complaintId);
     _localComplaints.insert(0, complaint);
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: complaint stored locally: ${complaint.complaintId}');
       return true;
     }
@@ -1070,7 +1070,7 @@ class QuickRideFirebaseService {
 
   /// Stream conversation replies for a complaint
   Stream<List<FirestoreComplaintReplyModel>> streamComplaintReplies(String complaintId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = List<FirestoreComplaintReplyModel>.from(_localReplies[complaintId] ?? []);
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return Stream.value(list);
@@ -1092,7 +1092,7 @@ class QuickRideFirebaseService {
 
   /// Fetch conversation replies once
   Future<List<FirestoreComplaintReplyModel>> fetchComplaintReplies(String complaintId) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final list = List<FirestoreComplaintReplyModel>.from(_localReplies[complaintId] ?? []);
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return list;
@@ -1129,7 +1129,7 @@ class QuickRideFirebaseService {
       _localComplaints[cIndex] = _localComplaints[cIndex].copyWith(updatedAt: DateTime.now());
     }
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: complaint reply stored locally: ${reply.replyId}');
       return true;
     }
@@ -1177,7 +1177,7 @@ class QuickRideFirebaseService {
 
     _localEmergencies.add(emergency);
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: emergency incident stored locally: ${emergency.emergencyId}');
       return true;
     }
@@ -1206,7 +1206,7 @@ class QuickRideFirebaseService {
       );
     }
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance.collection('emergencies').doc(emergencyId).update({
@@ -1223,7 +1223,7 @@ class QuickRideFirebaseService {
 
   /// Stream active emergency incident for a specific user
   Stream<FirestoreEmergencyIncidentModel?> streamActiveEmergency(String userId) {
-    if (!_isFirebaseAvailable || userId.isEmpty) {
+    if (!isFirebaseAvailable || userId.isEmpty) {
       final active = _localEmergencies.cast<FirestoreEmergencyIncidentModel?>().firstWhere(
         (e) => e?.userId == userId && e?.isActive == true,
         orElse: () => null,
@@ -1245,7 +1245,7 @@ class QuickRideFirebaseService {
 
   /// Fetch active emergency for user once
   Future<FirestoreEmergencyIncidentModel?> fetchActiveEmergency(String userId) async {
-    if (!_isFirebaseAvailable || userId.isEmpty) {
+    if (!isFirebaseAvailable || userId.isEmpty) {
       return _localEmergencies.cast<FirestoreEmergencyIncidentModel?>().firstWhere(
         (e) => e?.userId == userId && e?.isActive == true,
         orElse: () => null,
@@ -1275,7 +1275,7 @@ class QuickRideFirebaseService {
 
   /// Stream emergency contacts for user
   Stream<List<FirestoreEmergencyContactModel>> streamEmergencyContacts(String userId) {
-    if (!_isFirebaseAvailable || userId.isEmpty) {
+    if (!isFirebaseAvailable || userId.isEmpty) {
       return Stream.value(List<FirestoreEmergencyContactModel>.from(_localEmergencyContacts));
     }
 
@@ -1295,7 +1295,7 @@ class QuickRideFirebaseService {
 
   /// Fetch emergency contacts once
   Future<List<FirestoreEmergencyContactModel>> fetchEmergencyContacts(String userId) async {
-    if (!_isFirebaseAvailable || userId.isEmpty) {
+    if (!isFirebaseAvailable || userId.isEmpty) {
       return List<FirestoreEmergencyContactModel>.from(_localEmergencyContacts);
     }
 
@@ -1321,7 +1321,7 @@ class QuickRideFirebaseService {
     _localEmergencyContacts.removeWhere((c) => c.contactId == contact.contactId);
     _localEmergencyContacts.add(contact);
 
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       debugPrint('[QuickRide User] Offline mode: emergency contact stored locally: ${contact.contactId}');
       return true;
     }
@@ -1347,7 +1347,7 @@ class QuickRideFirebaseService {
       _localEmergencyContacts[idx] = contact;
     }
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance
@@ -1367,7 +1367,7 @@ class QuickRideFirebaseService {
   Future<bool> deleteEmergencyContact(String userId, String contactId) async {
     _localEmergencyContacts.removeWhere((c) => c.contactId == contactId);
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance
@@ -1399,7 +1399,7 @@ class QuickRideFirebaseService {
 
   /// Stream real-time chat messages for a ride
   Stream<List<FirestoreChatMessageModel>> streamChatMessages(String rideId) {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       final controller = _getChatController(rideId);
       final messages = _localChatMessages[rideId] ?? [];
       Future.microtask(() {
@@ -1435,7 +1435,7 @@ class QuickRideFirebaseService {
 
   /// Fetch one-time chat message list
   Future<List<FirestoreChatMessageModel>> fetchChatMessages(String rideId) async {
-    if (!_isFirebaseAvailable) {
+    if (!isFirebaseAvailable) {
       return List.unmodifiable(_localChatMessages[rideId] ?? []);
     }
 
@@ -1461,7 +1461,7 @@ class QuickRideFirebaseService {
     list.add(message);
     _getChatController(message.rideId).add(List.unmodifiable(list));
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance
@@ -1488,7 +1488,7 @@ class QuickRideFirebaseService {
       }
     }
 
-    if (!_isFirebaseAvailable) return true;
+    if (!isFirebaseAvailable) return true;
 
     try {
       await FirebaseFirestore.instance

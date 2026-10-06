@@ -62,9 +62,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialQuery);
-    if (widget.initialQuery.trim().isNotEmpty || PlacesService.mockSearchResults != null) {
-      _loadSuggestions(widget.initialQuery);
-    }
+    _loadSuggestions(widget.initialQuery);
   }
 
   @override
@@ -86,7 +84,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
     if (cleanQuery.isEmpty && PlacesService.mockSearchResults == null) {
       if (mounted) {
         setState(() {
-          _suggestions = [];
+          _suggestions = PlacesService.curatedLocations;
           _isLoading = false;
         });
       }
@@ -407,7 +405,26 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
               ),
             ],
 
-            // Suggestions list from Google Places API
+            // Suggestions list from Google Places API or Popular Transit Spots
+            if (_suggestions.isNotEmpty && _searchController.text.trim().isEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppDimensions.space16, vertical: 6),
+                child: Row(
+                  children: [
+                    Text(
+                      AppStrings.popularPlacesHeader,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondaryLight,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: AppColors.borderDark, height: 4),
+            ],
             if (_suggestions.isNotEmpty)
               Flexible(
                 child: ListView.separated(

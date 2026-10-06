@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 
@@ -26,7 +28,12 @@ class _SearchingRadarIndicatorState extends State<SearchingRadarIndicator>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
-    )..repeat();
+    );
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      _controller.value = 0.5;
+    } else {
+      _controller.repeat();
+    }
   }
 
   @override
