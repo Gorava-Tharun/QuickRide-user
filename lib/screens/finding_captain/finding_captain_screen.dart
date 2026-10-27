@@ -67,9 +67,7 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
     );
     _currentStatusMessage = 'Searching for a Captain...';
 
-    final isDemo = widget.rideRequest.isDemo ||
-        DemoService().isDemoMode ||
-        (widget.firestoreRideId == null && !QuickRideFirebaseService().isFirebaseAvailable);
+    final isDemo = widget.rideRequest.isDemo || DemoService().isDemoMode;
 
     if (isDemo) {
       _startDemoCaptainMatching();

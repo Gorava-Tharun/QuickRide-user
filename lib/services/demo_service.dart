@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/fare_model.dart';
 import '../models/location_model.dart';
 import '../models/offer_model.dart';
@@ -103,6 +105,41 @@ class DemoService extends ChangeNotifier {
       isDemo: true,
       captain: createDemoCaptain(selectedVehicle.title),
     );
+  }
+
+  /// Broadcasts the demo booking to the shared demo bus so Captain App can display it.
+  Future<void> broadcastDemoRideBooking(RideRequest request) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final map = {
+        'rideId': request.rideId,
+        'userId': request.userId,
+        'passengerName': 'Rahul (Demo Rider)',
+        'passengerPhone': '+91 98450 77123',
+        'pickupAddress': request.pickup.address,
+        'pickupLat': request.pickup.latitude,
+        'pickupLng': request.pickup.longitude,
+        'dropAddress': request.destination.address,
+        'dropLat': request.destination.latitude,
+        'dropLng': request.destination.longitude,
+        'vehicleType': request.selectedVehicle.title,
+        'fare': request.fareDetails.finalFare,
+        'distanceKm': request.distanceKm,
+        'estimatedMinutes': request.estimatedMinutes,
+        'paymentMode': request.paymentMethod == PaymentMethod.cash ? 'Cash / UPI' : 'Online / UPI',
+        'status': 'REQUESTED',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await prefs.setString('quickride_demo_active_booking', json.encode(map));
+    } catch (_) {}
+  }
+
+  /// Clears active demo booking on the shared demo bus.
+  Future<void> clearActiveDemoBooking() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('quickride_demo_active_booking');
+    } catch (_) {}
   }
 
   /// Claims a simulated demo discount voucher without processing real currency.

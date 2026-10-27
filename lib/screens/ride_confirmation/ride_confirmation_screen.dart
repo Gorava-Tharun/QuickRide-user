@@ -158,6 +158,7 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
         captain: demoCaptain,
       );
 
+      await DemoService().broadcastDemoRideBooking(demoRideRequest);
       await Future<void>.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
 

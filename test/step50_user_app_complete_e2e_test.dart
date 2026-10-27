@@ -22,6 +22,7 @@ import 'package:quickride_user/services/location_service.dart';
 import 'package:quickride_user/services/session_manager.dart';
 import 'package:quickride_user/services/settings_service.dart';
 import 'package:quickride_user/widgets/offline_banner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ void main() {
     late ConnectivityService connectivity;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       sessionManager = SessionManager();
       sessionManager.resetToDefault();
       connectivity = ConnectivityService();
