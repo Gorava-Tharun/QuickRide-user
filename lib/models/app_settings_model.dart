@@ -18,6 +18,7 @@ class AppSettings {
     this.locationServicesEnabled = true,
     this.personalizedOffersEnabled = true,
     this.dataUsageOptimized = false,
+    this.demoModeEnabled = false,
   });
 
   final bool rideNotificationsEnabled;
@@ -32,6 +33,7 @@ class AppSettings {
   final bool locationServicesEnabled;
   final bool personalizedOffersEnabled;
   final bool dataUsageOptimized;
+  final bool demoModeEnabled;
 
   String get themeModeName {
     switch (themeMode) {
@@ -67,6 +69,7 @@ class AppSettings {
     bool? locationServicesEnabled,
     bool? personalizedOffersEnabled,
     bool? dataUsageOptimized,
+    bool? demoModeEnabled,
   }) {
     return AppSettings(
       rideNotificationsEnabled:
@@ -90,6 +93,7 @@ class AppSettings {
       personalizedOffersEnabled:
           personalizedOffersEnabled ?? this.personalizedOffersEnabled,
       dataUsageOptimized: dataUsageOptimized ?? this.dataUsageOptimized,
+      demoModeEnabled: demoModeEnabled ?? this.demoModeEnabled,
     );
   }
 
@@ -107,6 +111,7 @@ class AppSettings {
       'locationServicesEnabled': locationServicesEnabled,
       'personalizedOffersEnabled': personalizedOffersEnabled,
       'dataUsageOptimized': dataUsageOptimized,
+      'demoModeEnabled': demoModeEnabled,
     };
   }
 
@@ -143,6 +148,7 @@ class AppSettings {
       personalizedOffersEnabled:
           json['personalizedOffersEnabled'] as bool? ?? true,
       dataUsageOptimized: json['dataUsageOptimized'] as bool? ?? false,
+      demoModeEnabled: json['demoModeEnabled'] as bool? ?? false,
     );
   }
 }

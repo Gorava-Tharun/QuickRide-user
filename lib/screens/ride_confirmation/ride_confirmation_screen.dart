@@ -14,6 +14,7 @@ import '../../services/firebase_service.dart';
 import '../../services/fare_calculator.dart';
 import '../../services/offer_service.dart';
 import '../../services/session_manager.dart';
+import '../../services/demo_service.dart';
 import '../../widgets/primary_button.dart';
 import '../finding_captain/finding_captain_screen.dart';
 
@@ -135,6 +136,45 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
       }
     } catch (_) {}
     final currentUserId = (authUid != null && authUid.isNotEmpty) ? authUid : user.userId;
+
+    // Controlled Demo Mode Check: Ensures data safety and no fake Firestore mutations
+    if (DemoService().isDemoMode) {
+      final demoCaptain = DemoService().createDemoCaptain(widget.selectedVehicle.title);
+      final demoRideId = 'DEMO_RIDE_${DateTime.now().millisecondsSinceEpoch}';
+
+      final demoRideRequest = RideRequest(
+        rideId: demoRideId,
+        userId: currentUserId,
+        pickup: widget.routeDetails.pickup,
+        destination: widget.routeDetails.destination,
+        selectedVehicle: widget.selectedVehicle,
+        distanceKm: widget.routeDetails.distanceKm,
+        estimatedMinutes: widget.routeDetails.estimatedMinutes,
+        fareDetails: widget.fareDetails,
+        paymentMethod: _selectedPaymentMethod,
+        status: RideStatus.searchingForCaptain,
+        createdAt: DateTime.now(),
+        isDemo: true,
+        captain: demoCaptain,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
+      setState(() {
+        _isRequesting = false;
+      });
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (ctx) => FindingCaptainScreen(
+            rideRequest: demoRideRequest,
+            firestoreRideId: null, // Safe local demo simulation
+          ),
+        ),
+      );
+      return;
+    }
 
     final rideId = 'RIDE-${DateTime.now().millisecondsSinceEpoch}';
     final appliedOffer = OfferService().appliedOffer;
@@ -740,6 +780,7 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
   }
 
   Widget _buildBottomBar() {
+    final isDemo = DemoService().isDemoMode;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimensions.space16,
@@ -749,11 +790,43 @@ class _RideConfirmationScreenState extends State<RideConfirmationScreen> {
         color: AppColors.surfaceDark,
         border: Border(top: BorderSide(color: AppColors.borderDark, width: 1.0)),
       ),
-      child: PrimaryButton(
-        text: 'Request QuickRide',
-        onPressed: _handleRequestRide,
-        isLoading: _isRequesting,
-        icon: Icons.local_taxi_rounded,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isDemo) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                border: Border.all(color: Colors.amber, width: 1.0),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.science_rounded, color: Colors.amber, size: 14),
+                  SizedBox(width: 6),
+                  Text(
+                    'DEMO MODE ACTIVE — Safe Viva Simulation',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          PrimaryButton(
+            text: isDemo ? 'Request Demo Ride' : 'Request QuickRide',
+            onPressed: _handleRequestRide,
+            isLoading: _isRequesting,
+            icon: isDemo ? Icons.science_rounded : Icons.local_taxi_rounded,
+          ),
+        ],
       ),
     );
   }

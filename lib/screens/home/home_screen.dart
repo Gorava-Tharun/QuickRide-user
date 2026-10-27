@@ -30,6 +30,7 @@ import '../payment/payment_history_screen.dart';
 import '../help_support/my_support_requests_screen.dart';
 import '../safety/safety_center_screen.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/demo_service.dart';
 import '../../widgets/offline_banner.dart';
 
 /// STEP 5: QuickRide User Home Screen with Pickup & Destination Selection.
@@ -60,6 +61,14 @@ class _HomeScreenState extends State<HomeScreen> {
   LocationPoint? _destinationLocation;
   RouteDetails? _routeDetails;
 
+  // Persistent Text Controllers for direct address display & editing
+  late final TextEditingController _pickupController;
+  late final TextEditingController _destinationController;
+
+  // Sequence counters to prevent older async geocoding responses from overwriting newer selections
+  int _pickupGeocodeSeq = 0;
+  int _destinationGeocodeSeq = 0;
+
   // Markers & Polylines
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
@@ -76,6 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
   LocationPoint? _tempMapDestination;
   bool _isGeocodingDestination = false;
 
+  // Pickup Selection on Map state
+  bool _isSelectingPickupOnMap = false;
+  bool _isGeocodingPickup = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
       name: AppStrings.currentLocation,
       address: 'Detecting current address...',
     );
+    _pickupController = TextEditingController(text: _pickupLocation.address);
+    _destinationController = TextEditingController(text: '');
     _rebuildMapMarkers();
     PushNotificationService().initialize(
       userId: SessionManager().currentUser.userId,
@@ -99,6 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _pickupController.dispose();
+    _destinationController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -304,9 +321,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final pos = result.position!;
       _currentGpsPosition = pos;
 
+      final currentSeq = ++_pickupGeocodeSeq;
       // Reverse geocode real street address
       final address = await LocationService.reverseGeocode(pos.latitude, pos.longitude);
-      if (!mounted) return;
+      if (!mounted || currentSeq != _pickupGeocodeSeq) return;
       _currentGpsAddress = address;
 
       if (!_hasUserManuallyChangedPickup || force) {
@@ -321,6 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _isLocating = false;
           _isLocationPermissionDenied = false;
           _pickupLocation = newPickup;
+          _pickupController.text = address;
         });
 
         _updateRouteAndCamera();
@@ -339,9 +358,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLocating = false;
         _isLocationPermissionDenied = true;
         if (_pickupLocation.address == 'Detecting current address...') {
-          _pickupLocation = _pickupLocation.copyWith(
-            address: 'Location permission required - tap to select',
+          final fallback = LocationService.generateFallbackLocation(
+            _pickupLocation.latitude,
+            _pickupLocation.longitude,
+            defaultName: 'Current Location',
           );
+          _pickupLocation = fallback;
+          _pickupController.text = fallback.address;
         }
       });
       if (!isInitial) {
@@ -353,8 +376,51 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Handles user tapping on map to select/move destination marker.
+  /// Handles user tapping on map to select/move markers.
   Future<void> _onMapTapped(LatLng point) async {
+    if (_isSelectingPickupOnMap) {
+      await _handleMapPickupSelected(point);
+    } else {
+      await _handleMapDestinationSelected(point);
+    }
+  }
+
+  /// Handles map tap when selecting Pickup.
+  Future<void> _handleMapPickupSelected(LatLng point) async {
+    final currentSeq = ++_pickupGeocodeSeq;
+    _hasUserManuallyChangedPickup = true;
+    setState(() {
+      _isGeocodingPickup = true;
+      _pickupLocation = LocationPoint(
+        latitude: point.latitude,
+        longitude: point.longitude,
+        name: 'Selected Pickup',
+        address: 'Detecting address...',
+      );
+      _pickupController.text = 'Detecting address...';
+    });
+    _rebuildMapMarkers();
+
+    final pointDetails = await LocationService.reverseGeocodePoint(
+      point.latitude,
+      point.longitude,
+      defaultName: 'Selected Pickup',
+    );
+
+    if (!mounted || currentSeq != _pickupGeocodeSeq) return;
+
+    setState(() {
+      _isGeocodingPickup = false;
+      _pickupLocation = pointDetails;
+      _pickupController.text = pointDetails.address;
+    });
+    _updateRouteAndCamera();
+    _showNotice('Pickup location updated from map.');
+  }
+
+  /// Handles map tap when selecting Destination.
+  Future<void> _handleMapDestinationSelected(LatLng point) async {
+    final currentSeq = ++_destinationGeocodeSeq;
     setState(() {
       _isSelectingDestinationOnMap = true;
       _isGeocodingDestination = true;
@@ -367,14 +433,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _rebuildMapMarkers();
 
-    // Reverse geocode via official Google Geocoding API
+    // Reverse geocode via Google Geocoding API with robust regional fallback
     final pointDetails = await LocationService.reverseGeocodePoint(
       point.latitude,
       point.longitude,
       defaultName: 'Selected Destination',
     );
 
-    if (!mounted) return;
+    if (!mounted || currentSeq != _destinationGeocodeSeq) return;
 
     setState(() {
       _isGeocodingDestination = false;
@@ -383,10 +449,46 @@ class _HomeScreenState extends State<HomeScreen> {
     _rebuildMapMarkers();
   }
 
+  /// Initiates pickup selection mode on map.
+  void _startSelectPickupOnMap() {
+    setState(() {
+      _isSelectingPickupOnMap = true;
+      _isSelectingDestinationOnMap = false;
+    });
+    _rebuildMapMarkers();
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _pickupLocation.toLatLng(),
+          zoom: 15.0,
+        ),
+      ),
+    );
+    _showNotice('Tap anywhere on the Google Map to set pickup location.');
+  }
+
+  /// Confirms pickup location chosen on map.
+  void _confirmMapPickup() {
+    setState(() {
+      _isSelectingPickupOnMap = false;
+    });
+    _updateRouteAndCamera();
+    _showNotice('Pickup location confirmed from map.');
+  }
+
+  /// Cancels pickup map selection mode.
+  void _cancelMapPickup() {
+    setState(() {
+      _isSelectingPickupOnMap = false;
+    });
+    _rebuildMapMarkers();
+  }
+
   /// Initiates destination selection mode on map.
   void _startSelectDestinationOnMap() {
     setState(() {
       _isSelectingDestinationOnMap = true;
+      _isSelectingPickupOnMap = false;
       if (_destinationLocation != null) {
         _tempMapDestination = _destinationLocation;
       } else {
@@ -443,13 +545,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (selected != null && mounted) {
-      if (selected.placeId == 'use_current_gps') {
+      if (selected.placeId == 'select_on_map') {
+        _startSelectPickupOnMap();
+      } else if (selected.placeId == 'use_current_gps') {
         _hasUserManuallyChangedPickup = false;
         _fetchCurrentLocation(force: true);
       } else {
         setState(() {
           _hasUserManuallyChangedPickup = true;
           _pickupLocation = selected;
+          _pickupController.text = selected.address;
         });
         _updateRouteAndCamera();
       }
@@ -479,8 +584,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setDestination(LocationPoint destination) {
     setState(() {
       _destinationLocation = destination;
+      _destinationController.text = destination.address;
     });
     _updateRouteAndCamera();
+  }
+
+  /// Handles manual user text edits in pickup field without losing coordinates
+  void _handlePickupTextChanged(String text) {
+    _hasUserManuallyChangedPickup = true;
+    _pickupLocation = _pickupLocation.copyWith(
+      name: text,
+      address: text,
+    );
+  }
+
+  /// Handles manual user text edits in destination field without losing coordinates
+  void _handleDestinationTextChanged(String text) {
+    if (_destinationLocation != null) {
+      _destinationLocation = _destinationLocation!.copyWith(
+        name: text,
+        address: text,
+      );
+    }
   }
 
   /// Swaps pickup and destination.
@@ -495,6 +620,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final temp = _pickupLocation;
       _pickupLocation = _destinationLocation!;
       _destinationLocation = temp;
+
+      final tempText = _pickupController.text;
+      _pickupController.text = _destinationController.text;
+      _destinationController.text = tempText;
     });
 
     _updateRouteAndCamera();
@@ -562,16 +691,30 @@ class _HomeScreenState extends State<HomeScreen> {
         position: _pickupLocation.toLatLng(),
         draggable: true,
         onDragEnd: (newPosition) async {
+          final currentSeq = ++_pickupGeocodeSeq;
           _hasUserManuallyChangedPickup = true;
-          final address = await LocationService.reverseGeocode(newPosition.latitude, newPosition.longitude);
-          if (!mounted) return;
           setState(() {
+            _isGeocodingPickup = true;
             _pickupLocation = LocationPoint(
               latitude: newPosition.latitude,
               longitude: newPosition.longitude,
               name: 'Selected Pickup',
-              address: address,
+              address: 'Detecting address...',
             );
+            _pickupController.text = 'Detecting address...';
+          });
+          _rebuildMapMarkers();
+
+          final pointDetails = await LocationService.reverseGeocodePoint(
+            newPosition.latitude,
+            newPosition.longitude,
+            defaultName: 'Selected Pickup',
+          );
+          if (!mounted || currentSeq != _pickupGeocodeSeq) return;
+          setState(() {
+            _isGeocodingPickup = false;
+            _pickupLocation = pointDetails;
+            _pickupController.text = pointDetails.address;
           });
           _updateRouteAndCamera();
           _showNotice('Pickup location moved.');
@@ -592,6 +735,7 @@ class _HomeScreenState extends State<HomeScreen> {
           position: _tempMapDestination!.toLatLng(),
           draggable: true,
           onDragEnd: (newPosition) async {
+            final currentSeq = ++_destinationGeocodeSeq;
             setState(() {
               _isGeocodingDestination = true;
               _tempMapDestination = _tempMapDestination!.copyWith(
@@ -605,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
               newPosition.longitude,
               defaultName: 'Selected Destination',
             );
-            if (!mounted) return;
+            if (!mounted || currentSeq != _destinationGeocodeSeq) return;
             setState(() {
               _isGeocodingDestination = false;
               _tempMapDestination = pointDetails;
@@ -626,12 +770,23 @@ class _HomeScreenState extends State<HomeScreen> {
           position: _destinationLocation!.toLatLng(),
           draggable: true,
           onDragEnd: (newPosition) async {
+            final currentSeq = ++_destinationGeocodeSeq;
+            setState(() {
+              _destinationLocation = _destinationLocation!.copyWith(
+                latitude: newPosition.latitude,
+                longitude: newPosition.longitude,
+                address: 'Detecting address...',
+              );
+              _destinationController.text = 'Detecting address...';
+            });
+            _rebuildMapMarkers();
+
             final pointDetails = await LocationService.reverseGeocodePoint(
               newPosition.latitude,
               newPosition.longitude,
               defaultName: 'Selected Destination',
             );
-            if (!mounted) return;
+            if (!mounted || currentSeq != _destinationGeocodeSeq) return;
             _setDestination(pointDetails);
             _showNotice('Destination updated from map.');
           },
@@ -743,7 +898,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // 1. Top Header Section
               _buildTopHeader(),
-              const SizedBox(height: AppDimensions.space16),
+              const SizedBox(height: AppDimensions.space12),
+
+              // Demo Mode Switch & Banner
+              _buildDemoModeHeaderBanner(),
+              const SizedBox(height: AppDimensions.space12),
 
               // 2. Location Permission Warning Banner (if denied)
               if (_isLocationPermissionDenied) ...[
@@ -754,6 +913,12 @@ class _HomeScreenState extends State<HomeScreen> {
               // 3. Google Maps Interactive View with Polyline & Markers
               _buildGoogleMapView(),
               const SizedBox(height: AppDimensions.space16),
+
+              // Floating "Confirm Pickup" card when in pickup map selection mode
+              if (_isSelectingPickupOnMap) ...[
+                _buildConfirmPickupCard(),
+                const SizedBox(height: AppDimensions.space16),
+              ],
 
               // Method 2: Floating "Confirm Destination" card when in map selection mode
               if (_isSelectingDestinationOnMap && _tempMapDestination != null) ...[
@@ -768,6 +933,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTapPickup: _handleSearchPickup,
                 onTapDestination: _handleSearchDestination,
                 onTapSelectDestinationOnMap: _startSelectDestinationOnMap,
+                onTapSelectPickupOnMap: _startSelectPickupOnMap,
+                pickupController: _pickupController,
+                destinationController: _destinationController,
+                onPickupChanged: _handlePickupTextChanged,
+                onDestinationChanged: _handleDestinationTextChanged,
+                isSelectingPickupOnMap: _isSelectingPickupOnMap,
+                isSelectingDestinationOnMap: _isSelectingDestinationOnMap,
                 onSwap: _handleSwapLocations,
                 routeDetails: _routeDetails,
               ),
@@ -842,6 +1014,97 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildDemoModeHeaderBanner() {
+    return AnimatedBuilder(
+      animation: DemoService(),
+      builder: (context, _) {
+        final isDemo = DemoService().isDemoMode;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDemo
+                ? Colors.amber.withValues(alpha: 0.12)
+                : AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+            border: Border.all(
+              color: isDemo ? Colors.amber : AppColors.borderDark,
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isDemo ? Icons.science_rounded : Icons.science_outlined,
+                color: isDemo ? Colors.amber : AppColors.textSecondaryLight,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          isDemo ? 'Demo Mode (Viva Presentation)' : 'Demo Mode',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: isDemo ? Colors.amber : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                        if (isDemo) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'ACTIVE',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.amber,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      isDemo
+                          ? 'Simulates Demo Captain & instant ride completion. Production records untouched.'
+                          : 'Enable to demonstrate ride booking without Captain app.',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.textSecondaryLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: isDemo,
+                activeThumbColor: Colors.amber,
+                onChanged: (val) {
+                  DemoService().setDemoMode(val);
+                  setState(() {});
+                  _showNotice(val
+                      ? 'Demo Mode enabled for viva presentation.'
+                      : 'Demo Mode disabled. Returning to live ride matching.');
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1016,26 +1279,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.surfaceDark.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
                   border: Border.all(
-                    color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.borderDark,
-                    width: _isSelectingDestinationOnMap ? 1.5 : 1.0,
+                    color: _isSelectingPickupOnMap
+                        ? AppColors.secondary
+                        : (_isSelectingDestinationOnMap ? AppColors.primary : AppColors.borderDark),
+                    width: (_isSelectingPickupOnMap || _isSelectingDestinationOnMap) ? 1.5 : 1.0,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _isSelectingDestinationOnMap ? Icons.place_rounded : Icons.touch_app_rounded,
+                      _isSelectingPickupOnMap
+                          ? Icons.pin_drop_rounded
+                          : (_isSelectingDestinationOnMap ? Icons.place_rounded : Icons.touch_app_rounded),
                       size: 13,
-                      color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.secondary,
+                      color: _isSelectingPickupOnMap
+                          ? AppColors.secondary
+                          : (_isSelectingDestinationOnMap ? AppColors.primary : AppColors.secondary),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _isSelectingDestinationOnMap
-                          ? 'Tap anywhere to drop destination marker'
-                          : AppStrings.tapToSelectOnMap,
+                      _isSelectingPickupOnMap
+                          ? 'Tap anywhere to set pickup marker'
+                          : (_isSelectingDestinationOnMap
+                              ? 'Tap anywhere to drop destination marker'
+                              : AppStrings.tapToSelectOnMap),
                       style: TextStyle(
                         fontSize: 11,
-                        color: _isSelectingDestinationOnMap ? AppColors.primary : AppColors.textSecondaryLight,
+                        color: _isSelectingPickupOnMap
+                            ? AppColors.secondary
+                            : (_isSelectingDestinationOnMap ? AppColors.primary : AppColors.textSecondaryLight),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1045,6 +1318,126 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmPickupCard() {
+    return Container(
+      padding: const EdgeInsets.all(AppDimensions.space16),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: AppColors.secondary, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.secondary.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.pin_drop_rounded, color: AppColors.secondary, size: 20),
+              ),
+              const SizedBox(width: AppDimensions.space12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Confirm Pickup Location',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Lat: ${_pickupLocation.latitude.toStringAsFixed(5)}, Lng: ${_pickupLocation.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondaryLight,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isGeocodingPickup)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.secondary),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppDimensions.space12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceDark,
+              borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+              border: Border.all(color: AppColors.borderDark),
+            ),
+            child: Text(
+              _pickupLocation.address,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimaryLight,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppDimensions.space12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSecondaryLight,
+                    side: const BorderSide(color: AppColors.borderDark),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                    ),
+                  ),
+                  onPressed: _cancelMapPickup,
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: AppDimensions.space12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                    ),
+                  ),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Confirm Pickup', style: TextStyle(fontWeight: FontWeight.w700)),
+                  onPressed: _confirmMapPickup,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

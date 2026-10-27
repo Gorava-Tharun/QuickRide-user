@@ -45,8 +45,10 @@ class RideTrackingService extends ChangeNotifier {
     );
 
     _currentRequest = _currentRequest.copyWith(
-      captainLocation: initialLocation,
-      status: RideStatus.captainFound,
+      captainLocation: _currentRequest.captainLocation ?? initialLocation,
+      status: _currentRequest.status == RideStatus.searchingForCaptain
+          ? RideStatus.captainFound
+          : _currentRequest.status,
     );
   }
 
@@ -251,6 +253,62 @@ class RideTrackingService extends ChangeNotifier {
     RideHistoryService().addCompletedRide(
       RideHistoryItem.fromRequest(_currentRequest).copyWith(
         status: RideStatus.cancelled,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Demo Helper: Fast-tracks arrival to pickup location (ARRIVED AT PICKUP)
+  void reachPickupDemo() {
+    _movementTimer?.cancel();
+    final pickup = _currentRequest.pickup;
+    final updatedLocation = CaptainLocation(
+      latitude: pickup.latitude,
+      longitude: pickup.longitude,
+      bearing: _currentRequest.captainLocation?.bearing ?? 0.0,
+    );
+    _currentRequest = _currentRequest.copyWith(
+      status: RideStatus.arrived,
+      captainLocation: updatedLocation,
+      captain: _currentRequest.captain?.copyWith(estimatedArrivalMinutes: 0),
+    );
+    NotificationService().addNotification(
+      AppNotification(
+        id: 'notif_arrived_${_currentRequest.rideId}',
+        type: NotificationType.captainArriving,
+        title: 'Captain Arrived',
+        message: 'Your demo captain has reached the pickup location.',
+        createdAt: DateTime.now(),
+        rideId: _currentRequest.rideId,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Demo Helper: Fast-tracks trip completion (RIDE COMPLETED)
+  void completeRideDemo() {
+    _movementTimer?.cancel();
+    final destination = _currentRequest.destination;
+    final updatedLocation = CaptainLocation(
+      latitude: destination.latitude,
+      longitude: destination.longitude,
+      bearing: _currentRequest.captainLocation?.bearing ?? 0.0,
+    );
+    _currentRequest = _currentRequest.copyWith(
+      status: RideStatus.rideCompleted,
+      captainLocation: updatedLocation,
+    );
+    RideHistoryService().addCompletedRide(
+      RideHistoryItem.fromRequest(_currentRequest),
+    );
+    NotificationService().addNotification(
+      AppNotification(
+        id: 'notif_completed_${_currentRequest.rideId}',
+        type: NotificationType.rideCompleted,
+        title: 'Ride Completed',
+        message: 'Your demo trip is complete! Thank you for riding with QuickRide.',
+        createdAt: DateTime.now(),
+        rideId: _currentRequest.rideId,
       ),
     );
     notifyListeners();

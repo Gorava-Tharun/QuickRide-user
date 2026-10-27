@@ -65,6 +65,7 @@ class CaptainModel {
     required this.estimatedArrivalMinutes,
     this.phone = '+91 98765 43210',
     this.avatarUrl,
+    this.isDemo = false,
   });
 
   final String id;
@@ -77,13 +78,47 @@ class CaptainModel {
   final int estimatedArrivalMinutes;
   final String phone;
   final String? avatarUrl;
+  final bool isDemo;
 
   String get formattedRating => rating.toStringAsFixed(1);
   String get formattedEta => '$estimatedArrivalMinutes min';
   String get formattedCompletedRides => '$completedRides rides';
 
+  CaptainModel copyWith({
+    String? id,
+    String? name,
+    String? vehicleType,
+    String? vehicleModel,
+    String? vehicleNumber,
+    double? rating,
+    int? completedRides,
+    int? estimatedArrivalMinutes,
+    String? phone,
+    String? avatarUrl,
+    bool? isDemo,
+  }) {
+    return CaptainModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      vehicleType: vehicleType ?? this.vehicleType,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehicleNumber: vehicleNumber ?? this.vehicleNumber,
+      rating: rating ?? this.rating,
+      completedRides: completedRides ?? this.completedRides,
+      estimatedArrivalMinutes: estimatedArrivalMinutes ?? this.estimatedArrivalMinutes,
+      phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isDemo: isDemo ?? this.isDemo,
+    );
+  }
+
   /// Standard demo captain factory.
-  factory CaptainModel.demo({required String vehicleCategoryTitle}) {
+  factory CaptainModel.demo({
+    required String vehicleCategoryTitle,
+    String? captainName,
+    String? vehicleNumber,
+    double? rating,
+  }) {
     String modelName = 'Standard Vehicle';
     if (vehicleCategoryTitle.toLowerCase().contains('bike')) {
       modelName = 'Hero Splendor Plus';
@@ -95,13 +130,14 @@ class CaptainModel {
 
     return CaptainModel(
       id: 'CPT_DEMO_9981',
-      name: 'Demo Captain (Rajesh Kumar)',
+      name: captainName ?? 'Demo Captain (Rajesh Kumar)',
       vehicleType: vehicleCategoryTitle,
       vehicleModel: modelName,
-      vehicleNumber: 'AP 09 CB 1234',
-      rating: 4.8,
+      vehicleNumber: vehicleNumber ?? 'AP 09 CB 1234',
+      rating: rating ?? 4.8,
       completedRides: 1240,
       estimatedArrivalMinutes: 3,
+      isDemo: true,
     );
   }
 }
@@ -123,6 +159,7 @@ class RideRequest {
     this.captainLocation,
     this.paymentStatus,
     required this.createdAt,
+    this.isDemo = false,
   });
 
   final String rideId;
@@ -139,6 +176,7 @@ class RideRequest {
   final CaptainLocation? captainLocation;
   final String? paymentStatus;
   final DateTime createdAt;
+  final bool isDemo;
 
   String get paymentMethodTitle {
     switch (paymentMethod) {
@@ -156,9 +194,12 @@ class RideRequest {
     required FareDetails fareDetails,
     required PaymentMethod paymentMethod,
     String userId = 'USER_DEMO_1001',
+    bool isDemo = false,
   }) {
     final timestamp = DateTime.now();
-    final rideId = 'QR_${timestamp.millisecondsSinceEpoch}';
+    final rideId = isDemo
+        ? 'DEMO_RIDE_${timestamp.millisecondsSinceEpoch}'
+        : 'QR_${timestamp.millisecondsSinceEpoch}';
 
     return RideRequest(
       rideId: rideId,
@@ -172,6 +213,7 @@ class RideRequest {
       paymentMethod: paymentMethod,
       status: RideStatus.searchingForCaptain,
       createdAt: timestamp,
+      isDemo: isDemo,
     );
   }
 
@@ -180,6 +222,7 @@ class RideRequest {
     CaptainModel? captain,
     CaptainLocation? captainLocation,
     String? paymentStatus,
+    bool? isDemo,
   }) {
     return RideRequest(
       rideId: rideId,
@@ -196,6 +239,7 @@ class RideRequest {
       captainLocation: captainLocation ?? this.captainLocation,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       createdAt: createdAt,
+      isDemo: isDemo ?? this.isDemo,
     );
   }
 

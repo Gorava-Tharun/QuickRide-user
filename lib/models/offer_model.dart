@@ -103,6 +103,7 @@ class Offer {
 const Map<String, String> kDemoCouponCodes = {
   'QUICK50': 'offer_quick10',
   'RIDE50': 'offer_save50',
+  'DEMO50': 'offer_demo_reward',
 };
 
 /// Built-in mock offers shown in the Offers screen.
@@ -200,5 +201,28 @@ final List<Offer> kMockOffers = [
         '• Valid once per user per day.',
     badgeColor: const Color(0xFF8B5CF6),
     iconData: Icons.bolt_rounded,
+  ),
+  Offer(
+    id: 'offer_demo_reward',
+    title: 'DEMO RIDE REWARD — 50% OFF',
+    subtitle: 'Claimed from Demo Ride Completion',
+    description:
+        '🎉 Exclusive Demo Ride Completion Reward! '
+        'Enjoy 50% off on your simulated QuickRide trips with coupon DEMO50.\n\n'
+        '⚠️ Demo reward for academic presentation & viva testing — no real payments or currency.',
+    couponCode: 'DEMO50',
+    discountType: DiscountType.percentage,
+    discountValue: 50.0,
+    maximumDiscount: 50.0,
+    minimumFare: 30.0,
+    expiryDate: DateTime(2027, 12, 31),
+    isActive: true,
+    termsAndConditions:
+        '• Valid on demo rides.\n'
+        '• Maximum demo discount: ₹50.\n'
+        '• Enter promo code DEMO50 at checkout.\n'
+        '• Academic demonstration simulation only.',
+    badgeColor: const Color(0xFFFFC700),
+    iconData: Icons.card_giftcard_rounded,
   ),
 ];

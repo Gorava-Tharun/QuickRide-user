@@ -4,6 +4,7 @@ import '../../core/constants/app_dimensions.dart';
 import '../../models/ride_model.dart';
 import '../../models/ride_review_model.dart';
 import '../../routes/app_routes.dart';
+import '../../services/demo_service.dart';
 import '../../services/ride_history_service.dart';
 import '../../services/ride_review_service.dart';
 import '../../widgets/primary_button.dart';
@@ -277,7 +278,12 @@ class _RatingReviewScreenState extends State<RatingReviewScreen> {
                   size: 36,
                 ),
 
-                const SizedBox(height: AppDimensions.space32),
+                if (widget.rideRequest.isDemo) ...[
+                  const SizedBox(height: AppDimensions.space20),
+                  _buildDemoRewardClaimCard(),
+                ],
+
+                const SizedBox(height: AppDimensions.space24),
                 PrimaryButton(
                   text: 'Back to Home',
                   onPressed: _handleBackToHome,
@@ -287,6 +293,88 @@ class _RatingReviewScreenState extends State<RatingReviewScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDemoRewardClaimCard() {
+    final demoService = DemoService();
+    final isClaimed = demoService.isDemoRewardClaimed;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppDimensions.space16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.card_giftcard_rounded, color: Color(0xFFF59E0B), size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'DEMO TRIP REWARD (50% OFF)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: Color(0xFFF59E0B),
+                  ),
+                ),
+              ),
+              if (isClaimed)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF10B981), width: 1),
+                  ),
+                  child: const Text(
+                    'CLAIMED',
+                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Coupon DEMO50 is ready to claim for completing the simulated presentation trip.',
+            style: TextStyle(fontSize: 12, color: AppColors.textPrimaryLight),
+          ),
+          const SizedBox(height: 10),
+          if (!isClaimed)
+            ElevatedButton.icon(
+              onPressed: () {
+                demoService.claimDemoReward();
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🎉 Promo Code DEMO50 claimed and applied into Offers! (Simulated)'),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.redeem_rounded, size: 16, color: Colors.black),
+              label: const Text('Claim Reward (DEMO50)', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800, fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                minimumSize: const Size(double.infinity, 38),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            )
+          else
+            const Center(
+              child: Text(
+                '✓ Reward Active in Offers (Code: DEMO50)',
+                style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.w700),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -402,13 +490,41 @@ class _RatingReviewScreenState extends State<RatingReviewScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  captain.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimaryLight,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        captain.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryLight,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (captain.isDemo || widget.rideRequest.isDemo) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.amber, width: 1),
+                        ),
+                        child: const Text(
+                          'DEMO CAPTAIN',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

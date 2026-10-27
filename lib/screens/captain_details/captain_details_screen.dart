@@ -660,23 +660,23 @@ class _CaptainDetailsScreenState extends State<CaptainDetailsScreen> {
 
     switch (req.status) {
       case RideStatus.arriving:
-        title = 'Captain is on the way';
+        title = req.isDemo ? 'Captain is on the way (Demo)' : 'Captain is on the way';
         subtitle = 'Arriving in approximately ${captain.formattedEta}';
         icon = Icons.directions_bike_rounded;
         break;
       case RideStatus.arrived:
-        title = 'Captain Has Arrived!';
+        title = req.isDemo ? 'Captain Has Arrived! (Demo)' : 'Captain Has Arrived!';
         subtitle = 'Your captain is waiting at the pickup location.';
         icon = Icons.where_to_vote_rounded;
         break;
       case RideStatus.rideStarted:
-        title = 'Ride in Progress';
+        title = req.isDemo ? 'Ride in Progress (Demo)' : 'Ride in Progress';
         subtitle = 'On the way to ${req.destination.name}';
         icon = Icons.navigation_rounded;
         break;
       default:
-        title = 'Captain Found';
-        subtitle = 'Captain is assigning route...';
+        title = req.isDemo ? 'Demo Captain Found' : 'Captain Found';
+        subtitle = req.isDemo ? 'Demo Captain Rajesh Kumar assigned' : 'Captain is assigning route...';
         icon = Icons.person_pin_circle_rounded;
     }
 
@@ -697,13 +697,40 @@ class _CaptainDetailsScreenState extends State<CaptainDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimaryLight,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryLight,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (req.isDemo) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.amber, width: 0.8),
+                        ),
+                        child: const Text(
+                          'DEMO',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   subtitle,
@@ -750,13 +777,40 @@ class _CaptainDetailsScreenState extends State<CaptainDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  captain.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimaryLight,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        captain.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryLight,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (captain.isDemo) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.amber, width: 1),
+                        ),
+                        child: const Text(
+                          'DEMO CAPTAIN',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -980,6 +1034,95 @@ class _CaptainDetailsScreenState extends State<CaptainDetailsScreen> {
   }
 
   Widget _buildActionButtons(RideRequest req) {
+    if (req.isDemo) {
+      if (req.status == RideStatus.captainFound || req.status == RideStatus.arriving) {
+        return Column(
+          children: [
+            PrimaryButton(
+              text: 'Simulate Reach Pickup (Arrived)',
+              icon: Icons.where_to_vote_rounded,
+              onPressed: () => _trackingService.reachPickupDemo(),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _handleCancelRide,
+              icon: const Icon(Icons.close_rounded, color: AppColors.error, size: 18),
+              label: const Text(
+                'Cancel Ride',
+                style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                side: const BorderSide(color: AppColors.error, width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      if (req.status == RideStatus.arrived) {
+        return Column(
+          children: [
+            PrimaryButton(
+              text: 'Start Ride (Demo)',
+              onPressed: () => _trackingService.startRide(),
+              icon: Icons.play_arrow_rounded,
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _handleCancelRide,
+              child: const Text(
+                'Cancel Ride',
+                style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      }
+
+      if (req.status == RideStatus.rideStarted) {
+        return Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppDimensions.space12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                border: Border.all(color: AppColors.primary),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.directions_car_rounded, color: AppColors.primary, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Ride in Progress — En Route to Destination (Demo)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimaryLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              text: 'Complete Ride (Demo)',
+              icon: Icons.check_circle_rounded,
+              onPressed: () => _trackingService.completeRideDemo(),
+            ),
+          ],
+        );
+      }
+    }
+
     if (req.status == RideStatus.arrived) {
       return Column(
         children: [

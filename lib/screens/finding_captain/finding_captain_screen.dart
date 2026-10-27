@@ -12,6 +12,7 @@ import '../../services/captain_matching_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/firebase_service.dart';
 import '../../services/ride_history_service.dart';
+import '../../services/demo_service.dart';
 import '../../models/ride_history_model.dart';
 import '../../models/ride_details_model.dart';
 import '../../widgets/user_cancellation_dialog.dart';
@@ -56,6 +57,7 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
   String _currentStatusMessage = 'Searching for a Captain...';
   GoogleMapController? _mapController;
   StreamSubscription<SharedRideModel?>? _rideSubscription;
+  Timer? _demoTimer;
 
   @override
   void initState() {
@@ -64,7 +66,124 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
       status: RideStatus.searchingForCaptain,
     );
     _currentStatusMessage = 'Searching for a Captain...';
-    _listenToFirestoreRide();
+
+    final isDemo = widget.rideRequest.isDemo ||
+        DemoService().isDemoMode ||
+        (widget.firestoreRideId == null && !QuickRideFirebaseService().isFirebaseAvailable);
+
+    if (isDemo) {
+      _startDemoCaptainMatching();
+    } else {
+      _listenToFirestoreRide();
+    }
+  }
+
+  void _startDemoCaptainMatching() {
+    // 1. Validate vehicle distance eligibility under existing fare rules
+    final eligibility = DemoService().checkVehicleEligibility(
+      vehicleType: _currentRideRequest.selectedVehicle.title,
+      distanceKm: _currentRideRequest.distanceKm,
+    );
+
+    if (!eligibility.available) {
+      setState(() {
+        _currentRideRequest = _currentRideRequest.copyWith(
+          status: RideStatus.noCaptainAvailable,
+          isDemo: true,
+        );
+        _currentStatusMessage = eligibility.unavailableReason ?? 'Vehicle is unavailable for this distance.';
+      });
+      return;
+    }
+
+    final demoCaptain = DemoService().createDemoCaptain(_currentRideRequest.selectedVehicle.title);
+
+    if (widget.searchDurationSeconds == 0) {
+      if (widget.simulateNoCaptain) {
+        setState(() {
+          _currentRideRequest = _currentRideRequest.copyWith(
+            status: RideStatus.noCaptainAvailable,
+            isDemo: true,
+          );
+          _currentStatusMessage = 'No Captain Available';
+        });
+      } else {
+        setState(() {
+          _currentRideRequest = _currentRideRequest.copyWith(
+            status: RideStatus.searchingForCaptain,
+            captain: demoCaptain,
+            isDemo: true,
+          );
+          _currentStatusMessage = 'Demo Captain located! Ready to accept ride.';
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _currentRideRequest = _currentRideRequest.copyWith(
+        status: RideStatus.searchingForCaptain,
+        isDemo: true,
+      );
+      _currentStatusMessage = 'Finding nearby Demo Captains...';
+    });
+
+    _demoTimer?.cancel();
+    _demoTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() {
+        _currentStatusMessage = 'Checking vehicle availability under fare rules...';
+      });
+
+      _demoTimer = Timer(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        if (widget.simulateNoCaptain) {
+          setState(() {
+            _currentRideRequest = _currentRideRequest.copyWith(
+              status: RideStatus.noCaptainAvailable,
+            );
+            _currentStatusMessage = 'No Demo Captain Available';
+          });
+        } else {
+          setState(() {
+            _currentRideRequest = _currentRideRequest.copyWith(
+              captain: demoCaptain,
+            );
+            _currentStatusMessage = 'Demo Captain located! Ready to accept ride.';
+          });
+        }
+      });
+    });
+  }
+
+  void _handleAcceptDemoRide() {
+    setState(() {
+      _currentRideRequest = _currentRideRequest.copyWith(
+        status: RideStatus.captainFound,
+        captain: _currentRideRequest.captain ??
+            DemoService().createDemoCaptain(_currentRideRequest.selectedVehicle.title),
+      );
+      _currentStatusMessage = 'Demo Captain Accepted Your Ride!';
+    });
+
+    NotificationService().addNotification(
+      AppNotification(
+        id: 'notif_found_${_currentRideRequest.rideId}',
+        type: NotificationType.captainFound,
+        title: 'Captain Found',
+        message: 'Your Demo Captain Rajesh Kumar has accepted your ride request.',
+        createdAt: DateTime.now(),
+        rideId: _currentRideRequest.rideId,
+      ),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Demo Captain accepted your ride!'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _listenToFirestoreRide() {
@@ -253,6 +372,7 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
 
   @override
   void dispose() {
+    _demoTimer?.cancel();
     _rideSubscription?.cancel();
     super.dispose();
   }
@@ -416,6 +536,155 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
   }
 
   Widget _buildSearchingView() {
+    final captain = _currentRideRequest.captain;
+
+    if (_currentRideRequest.isDemo && captain != null) {
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Demo Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                border: Border.all(color: Colors.amber, width: 1.2),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.science_rounded, color: Colors.amber, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'DEMO CAPTAIN LOCATED — Awaiting Ride Acceptance',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Demo Captain Card
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.space16),
+              decoration: BoxDecoration(
+                color: AppColors.cardDark,
+                borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+                border: Border.all(color: AppColors.borderDark, width: 1.2),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.amber.withValues(alpha: 0.2),
+                        child: const Icon(Icons.person_rounded, color: Colors.amber, size: 30),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              captain.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimaryLight,
+                              ),
+                            ),
+                            Text(
+                              '${captain.vehicleType} • ${captain.vehicleNumber}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevatedDark,
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              captain.formattedRating,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(color: AppColors.borderDark, height: 1),
+                  ),
+                  _buildMiniTripCard(),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Fare Estimate',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondaryLight),
+                      ),
+                      Text(
+                        _currentRideRequest.fareDetails.formattedFinalFare,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Accept Ride Button
+            PrimaryButton(
+              text: 'Accept Ride (Demo Captain)',
+              onPressed: _handleAcceptDemoRide,
+              icon: Icons.check_circle_outline_rounded,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: _handleCancelRide,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                side: const BorderSide(color: AppColors.borderDark),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                ),
+              ),
+              child: const Text('Cancel Ride', style: TextStyle(color: AppColors.textSecondaryLight)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -489,6 +758,34 @@ class _FindingCaptainScreenState extends State<FindingCaptainScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (captain.isDemo) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                border: Border.all(color: Colors.amber, width: 1.2),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.science_rounded, color: Colors.amber, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'DEMO CAPTAIN ACCEPTED — Safe Simulated Data',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Banner
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

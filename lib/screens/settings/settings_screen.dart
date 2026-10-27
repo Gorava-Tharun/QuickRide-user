@@ -7,6 +7,7 @@ import '../../models/app_settings_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/session_manager.dart';
 import '../../services/settings_service.dart';
+import '../../services/demo_service.dart';
 import '../profile/edit_profile_screen.dart';
 import 'about_quickride_screen.dart';
 import 'change_password_screen.dart';
@@ -583,6 +584,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildAboutCard(),
                   const SizedBox(height: AppDimensions.space20),
 
+                  // 8b. DEMO & PRESENTATION MODE
+                  _buildSectionHeader('DEMO & PRESENTATION'),
+                  _buildDemoModeCard(settings),
+                  const SizedBox(height: AppDimensions.space20),
+
                   // 9. DATA & STORAGE (DEVELOPER OPTION)
                   _buildSectionHeader('DATA & STORAGE'),
                   _buildDataManagementCard(),
@@ -975,6 +981,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  // 8b. Demo Mode Card
+  Widget _buildDemoModeCard(AppSettings settings) {
+    return Material(
+      color: AppColors.cardDark,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+        side: BorderSide(
+          color: settings.demoModeEnabled ? Colors.amber : AppColors.borderDark,
+          width: settings.demoModeEnabled ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        children: [
+          _buildSwitchTile(
+            title: 'Demo Mode (Viva Presentation)',
+            subtitle: 'Enable simulated Demo Captain (Rajesh Kumar) and instant ride workflow without real Captain devices.',
+            value: settings.demoModeEnabled,
+            onChanged: (val) {
+              _settingsService.setDemoMode(val);
+              DemoService().setDemoMode(val);
+            },
+          ),
+        ],
       ),
     );
   }

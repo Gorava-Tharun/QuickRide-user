@@ -26,6 +26,7 @@ class RideHistoryItem {
     this.rating,
     this.reviewText,
     this.reviewTags,
+    this.isDemo = false,
   }) : createdAt = createdAt ?? completedAt;
 
   final String rideId;
@@ -42,6 +43,7 @@ class RideHistoryItem {
   final DateTime createdAt;
   final RideStatus status;
   final String paymentStatus;
+  final bool isDemo;
 
   /// Whether the user has already submitted a rating for this ride.
   final bool isRated;
@@ -119,6 +121,7 @@ class RideHistoryItem {
           ? RideStatus.cancelled
           : RideStatus.rideCompleted,
       paymentStatus: request.paymentStatus ?? (request.paymentMethod == PaymentMethod.cash ? 'PENDING' : 'PAID'),
+      isDemo: request.isDemo,
     );
   }
 
@@ -138,6 +141,7 @@ class RideHistoryItem {
       status: status,
       paymentStatus: paymentStatus,
       createdAt: createdAt,
+      isDemo: isDemo,
     );
   }
 
@@ -152,6 +156,7 @@ class RideHistoryItem {
     int? rating,
     String? reviewText,
     List<String>? reviewTags,
+    bool? isDemo,
   }) {
     return RideHistoryItem(
       rideId: rideId,
@@ -173,6 +178,7 @@ class RideHistoryItem {
       rating: rating ?? this.rating,
       reviewText: reviewText ?? this.reviewText,
       reviewTags: reviewTags ?? this.reviewTags,
+      isDemo: isDemo ?? this.isDemo,
     );
   }
 

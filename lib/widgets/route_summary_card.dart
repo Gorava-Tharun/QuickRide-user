@@ -4,7 +4,7 @@ import '../core/constants/app_dimensions.dart';
 import '../core/constants/app_strings.dart';
 import '../models/location_model.dart';
 
-/// Card showing selected pickup & destination with swap button and route metrics.
+/// Card showing selected pickup & destination with swap button, editable text controllers, and route metrics.
 class RouteSummaryCard extends StatelessWidget {
   const RouteSummaryCard({
     super.key,
@@ -15,6 +15,13 @@ class RouteSummaryCard extends StatelessWidget {
     required this.onSwap,
     this.routeDetails,
     this.onTapSelectDestinationOnMap,
+    this.onTapSelectPickupOnMap,
+    this.pickupController,
+    this.destinationController,
+    this.onPickupChanged,
+    this.onDestinationChanged,
+    this.isSelectingPickupOnMap = false,
+    this.isSelectingDestinationOnMap = false,
   });
 
   final LocationPoint pickup;
@@ -24,6 +31,13 @@ class RouteSummaryCard extends StatelessWidget {
   final VoidCallback onSwap;
   final RouteDetails? routeDetails;
   final VoidCallback? onTapSelectDestinationOnMap;
+  final VoidCallback? onTapSelectPickupOnMap;
+  final TextEditingController? pickupController;
+  final TextEditingController? destinationController;
+  final ValueChanged<String>? onPickupChanged;
+  final ValueChanged<String>? onDestinationChanged;
+  final bool isSelectingPickupOnMap;
+  final bool isSelectingDestinationOnMap;
 
   @override
   Widget build(BuildContext context) {
@@ -83,77 +97,135 @@ class RouteSummaryCard extends StatelessWidget {
                 child: Column(
                   children: [
                     // Pickup Selector
-                    InkWell(
-                      onTap: onTapPickup,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceDark,
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                          border: Border.all(color: AppColors.borderDark),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                        border: Border.all(
+                          color: isSelectingPickupOnMap ? AppColors.secondary : AppColors.borderDark,
+                          width: isSelectingPickupOnMap ? 1.5 : 1.0,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              AppStrings.pickupLocation,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.secondary,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: onTapPickup,
+                              borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    AppStrings.pickupLocation,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.secondary,
+                                    ),
+                                  ),
+                                  if (pickup.name.isNotEmpty && pickup.name != pickup.address) ...[
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      pickup.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimaryLight,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 2),
+                                  pickupController != null
+                                      ? TextField(
+                                          controller: pickupController,
+                                          onChanged: onPickupChanged,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimaryLight,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.symmetric(vertical: 2),
+                                            border: InputBorder.none,
+                                            hintText: 'Enter or select pickup address',
+                                            hintStyle: TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondaryLight,
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          pickup.address.isNotEmpty ? pickup.address : pickup.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimaryLight,
+                                          ),
+                                        ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              pickup.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimaryLight,
-                              ),
-                            ),
-                            if (pickup.address.isNotEmpty && pickup.address != pickup.name) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                pickup.address,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppColors.textSecondaryLight,
+                          ),
+                          if (onTapSelectPickupOnMap != null) ...[
+                            const SizedBox(width: 6),
+                            Tooltip(
+                              message: 'Select on Google Map',
+                              child: InkWell(
+                                onTap: onTapSelectPickupOnMap,
+                                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isSelectingPickupOnMap
+                                        ? AppColors.secondary.withValues(alpha: 0.25)
+                                        : AppColors.cardDark,
+                                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                    border: Border.all(
+                                      color: isSelectingPickupOnMap ? AppColors.secondary : AppColors.borderDark,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.pin_drop_rounded,
+                                    size: 16,
+                                    color: isSelectingPickupOnMap ? AppColors.secondary : AppColors.primary,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
 
                     const SizedBox(height: 8),
 
                     // Destination Selector
-                    InkWell(
-                      onTap: onTapDestination,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceDark,
-                          borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                          border: Border.all(
-                            color: destination != null ? AppColors.primary : AppColors.borderDark,
-                            width: destination != null ? 1.2 : 1.0,
-                          ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                        border: Border.all(
+                          color: isSelectingDestinationOnMap
+                              ? AppColors.primary
+                              : (destination != null ? AppColors.primary : AppColors.borderDark),
+                          width: (isSelectingDestinationOnMap || destination != null) ? 1.2 : 1.0,
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: onTapDestination,
+                              borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -165,62 +237,97 @@ class RouteSummaryCard extends StatelessWidget {
                                       color: AppColors.primary,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    destination?.name ?? AppStrings.destinationSearchPrompt,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: destination != null ? FontWeight.w700 : FontWeight.w500,
-                                      color: destination != null
-                                          ? AppColors.textPrimaryLight
-                                          : AppColors.textSecondaryLight,
-                                    ),
-                                  ),
                                   if (destination != null &&
-                                      destination!.address.isNotEmpty &&
-                                      destination!.address != destination!.name) ...[
-                                    const SizedBox(height: 2),
+                                      destination!.name.isNotEmpty &&
+                                      destination!.name != destination!.address) ...[
+                                    const SizedBox(height: 1),
                                     Text(
-                                      destination!.address,
+                                      destination!.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w400,
-                                        color: AppColors.textSecondaryLight,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimaryLight,
                                       ),
                                     ),
                                   ],
+                                  const SizedBox(height: 2),
+                                  destination == null
+                                      ? const Text(
+                                          AppStrings.destinationSearchPrompt,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.textSecondaryLight,
+                                          ),
+                                        )
+                                      : destinationController != null
+                                          ? TextField(
+                                              controller: destinationController,
+                                              onChanged: onDestinationChanged,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textPrimaryLight,
+                                              ),
+                                              decoration: const InputDecoration(
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.symmetric(vertical: 2),
+                                                border: InputBorder.none,
+                                                hintText: AppStrings.destinationSearchPrompt,
+                                                hintStyle: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppColors.textSecondaryLight,
+                                                ),
+                                              ),
+                                            )
+                                          : Text(
+                                              destination!.address.isNotEmpty
+                                                  ? destination!.address
+                                                  : destination!.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimaryLight,
+                                              ),
+                                            ),
                                 ],
                               ),
                             ),
-                            if (onTapSelectDestinationOnMap != null) ...[
-                              const SizedBox(width: 8),
-                              Tooltip(
-                                message: 'Select on Google Map',
-                                child: InkWell(
-                                  onTap: onTapSelectDestinationOnMap,
-                                  borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.cardDark,
-                                      borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
-                                      border: Border.all(color: AppColors.borderDark),
+                          ),
+                          if (onTapSelectDestinationOnMap != null) ...[
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'Select on Google Map',
+                              child: InkWell(
+                                onTap: onTapSelectDestinationOnMap,
+                                borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isSelectingDestinationOnMap
+                                        ? AppColors.primary.withValues(alpha: 0.25)
+                                        : AppColors.cardDark,
+                                    borderRadius: BorderRadius.circular(AppDimensions.radiusSmall),
+                                    border: Border.all(
+                                      color: isSelectingDestinationOnMap ? AppColors.primary : AppColors.borderDark,
                                     ),
-                                    child: const Icon(
-                                      Icons.map_rounded,
-                                      size: 16,
-                                      color: AppColors.primary,
-                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.map_rounded,
+                                    size: 16,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
                   ],

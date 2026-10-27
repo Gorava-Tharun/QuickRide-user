@@ -103,6 +103,14 @@ class SettingsService extends ChangeNotifier implements SettingsRepository {
     await updateSettings(_settings.copyWith(personalizedOffersEnabled: enabled));
   }
 
+  /// Whether controlled demo mode is enabled.
+  bool get demoModeEnabled => _settings.demoModeEnabled;
+
+  /// Toggles demo mode preference.
+  Future<void> setDemoMode(bool enabled) async {
+    await updateSettings(_settings.copyWith(demoModeEnabled: enabled));
+  }
+
   @override
   Future<void> resetSettings() async {
     _settings = const AppSettings();
